@@ -169,7 +169,10 @@ const Reader = struct {
         var list = std.ArrayList(Ast).init(self.alloc);
         while (self.tokenizer.peek()) |t| {
             switch (t.tag) {
-                until => return list.toOwnedSlice(),
+                until => {
+                    self.tokenizer.pos += 1;
+                    return list.toOwnedSlice();
+                },
                 else => try list.append(try self.read_form()),
             }
         }
@@ -200,6 +203,14 @@ test "Reader" {
     try expect(result2.list[2].atom.num == 4);
 
     // Step 3: a nested list "(1 13 (24 47) 8)"
+    const s3 = "(1 13 (24 47) 8)";
+    const result3 = try read_str(alloc, s3);
+    try expect(result3.list[0].atom.num == 1);
+    try expect(result3.list[1].atom.num == 13);
+    try expect(result3.list[2].list[0].atom.num == 24);
+    try expect(result3.list[2].list[1].atom.num == 47);
+    try expect(result3.list[3].atom.num == 8);
+
     // Step 4: nested lists with symbols
     // Step 5: wrong syntax, errors
 }
