@@ -96,7 +96,6 @@ const Tokenizer = struct {
 // TODO: test str ending in whitespace, and ending on a paren
 
 //// READER
-// see also: https://github.com/ziglang/zig/blob/master/lib/std/json/scanner.zig
 
 const ReadError = error{
     Err,
@@ -109,7 +108,7 @@ const Atom = union {
 };
 
 const Ast = union {
-    atom: Atom,
+    atom: *Atom,
     list: []Ast,
 };
 
@@ -122,9 +121,6 @@ pub fn read_str(alloc: mem.Allocator, str: []const u8) !Ast {
     // I will initialize the Tokenizer inside the Reader.
     // Because we need to allocate the return value in memory and return it,
     // we need to pass an allocator to the fn.
-    // I'm thinking Arena, which can then include other allocators inside (for nested lists).
-    // var arena = std.heap.ArenaAllocator.init(alloc);
-    // defer arena.deinit();
 
     var reader = Reader.init(alloc, str);
     return reader.read_form();
@@ -132,10 +128,6 @@ pub fn read_str(alloc: mem.Allocator, str: []const u8) !Ast {
 
 const Reader = struct {
     alloc: mem.Allocator,
-    // TODO: Do I need to have ast under Reader?
-    // Or can I just shove everything in alloc?
-    // But then how do I access it?
-    // ast: std.ArrayList(Ast),
     str: []const u8,
     tokenizer: Tokenizer,
 
@@ -155,10 +147,15 @@ const Reader = struct {
         } else return ReadError.Err;
     }
 
-    fn read_atom(self: *Self, token: Token) !Atom {
+    fn read_atom(self: *Self, token: Token) !*Atom {
         const buf = self.str[token.loc.begin .. token.loc.end + 1];
+        const atom = try self.alloc.create(Atom);
         switch (token.tag) {
-            .number => return Atom{ .num = try std.fmt.parseInt(isize, buf, 10) },
+            .number => {
+                const num = try std.fmt.parseInt(isize, buf, 10);
+                atom.num = num;
+                return atom;
+            },
             else => unreachable,
         }
     }
@@ -183,14 +180,21 @@ const Reader = struct {
 test "Reader" {
     const expect = std.testing.expect;
 
+    // Using an arena in tests to free all memory at once.
+    // In actual usage, the caller will own (and free) the memory,
+    // possibly using a very similar approach.
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     // Step 1: a single int "42"
     const s = "   42   ";
-    const result = try read_str(std.testing.allocator, s);
+    const result = try read_str(alloc, s);
     try expect(result.atom.num == 42);
 
     // Step 2: a simple list "(1 2 4)"
     const s2 = "(1 2 4)";
-    const result2 = try read_str(std.testing.allocator, s2);
+    const result2 = try read_str(alloc, s2);
     try expect(result2.list[0].atom.num == 1);
     try expect(result2.list[1].atom.num == 2);
     try expect(result2.list[2].atom.num == 4);
