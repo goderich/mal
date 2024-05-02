@@ -31,17 +31,15 @@ const Tokenizer = struct {
 
     pub fn next(self: *Self) ?Token {
         // Fast-forward through whitespace
-        // std.debug.print("\nEntering Tokenizer.next at pos {d}\n", .{self.pos});
         while (!self.onEOF() and self.onWhitespace()) self.pos += 1;
         if (self.onEOF()) return null;
 
         const token: Token = switch (self.str[self.pos]) {
             '(' => .{ .tag = .leftParen, .loc = .{ .begin = self.pos, .end = self.pos } },
             ')' => .{ .tag = .rightParen, .loc = .{ .begin = self.pos, .end = self.pos } },
-            // TODO: numbers can be negative
-            '0'...'9' => self.tokenizeNum(),
-            // TODO: start parsing .symbol
-            else => return null,
+            '0'...'9' => self.tokenize(.number),
+            '-' => self.tokenizeMinus(),
+            else => self.tokenize(.symbol),
         };
         self.pos += 1;
         return token;
@@ -54,15 +52,18 @@ const Tokenizer = struct {
         return token;
     }
 
-    // When parsing strings >1 char, stop at either a whitespace char
-    // or a paren. Right paren only, left paren should be illegal (check).
-    fn tokenizeNum(self: *Self) Token {
+    fn tokenize(self: *Self, tag: Token.Tag) Token {
         const begin = self.pos;
         while (!self.onEOF() and !self.onWhitespace() and !self.onRightParen()) self.pos += 1;
-        // TODO: instead of going back here, maybe move differently on each token?
-        // OTOH, how do I make sure I don't fly right off the EOF?
         self.pos -= 1;
-        return Token{ .tag = .number, .loc = .{ .begin = begin, .end = self.pos } };
+        return Token{ .tag = tag, .loc = .{ .begin = begin, .end = self.pos } };
+    }
+
+    fn tokenizeMinus(self: *Self) Token {
+        switch (self.str[self.pos + 1]) {
+            '0'...'9' => return self.tokenize(.number),
+            else => return self.tokenize(.symbol),
+        }
     }
 
     fn onWhitespace(self: *Self) bool {
@@ -80,10 +81,9 @@ const Tokenizer = struct {
 };
 
 // test "Tokenizer tests" {
-//     var r = Tokenizer{
-//         .str =
-//         \\ (123    12  17 1 143
-//         \\ 	( 13   (3)))
+//     var r = Tokenizer{ .str =
+//     \\ (123    12  -17 1 143
+//     \\ 	(+ 13   (3)))
 //     };
 //     std.debug.print("\n", .{});
 //     while (true) {
