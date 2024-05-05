@@ -102,12 +102,12 @@ const ReadError = error{
     UnexpectedEndOfList,
 };
 
-const Atom = union {
-    num: isize,
-    // sym:
+pub const Atom = union(enum) {
+    number: isize,
+    symbol: []const u8,
 };
 
-const Ast = union {
+pub const Ast = union(enum) {
     atom: *Atom,
     list: []Ast,
 };
@@ -153,7 +153,17 @@ const Reader = struct {
         switch (token.tag) {
             .number => {
                 const num = try std.fmt.parseInt(isize, buf, 10);
-                atom.num = num;
+                // I had the below line initially, however it does not work
+                // if the Atom union type has more than one member,
+                // giving me the following error:
+                // https://github.com/ziglang/zig/issues/19211
+                //
+                // atom.number = num;
+                atom.* = Atom{ .number = num };
+                return atom;
+            },
+            .symbol => {
+                atom.* = Atom{ .symbol = buf };
                 return atom;
             },
             else => unreachable,
@@ -193,25 +203,31 @@ test "Reader" {
     // Step 1: a single int "42"
     const s = "   42   ";
     const result = try read_str(alloc, s);
-    try expect(result.atom.num == 42);
+    try expect(result.atom.number == 42);
 
     // Step 2: a simple list "(1 2 4)"
     const s2 = "(1 2 4)";
     const result2 = try read_str(alloc, s2);
-    try expect(result2.list[0].atom.num == 1);
-    try expect(result2.list[1].atom.num == 2);
-    try expect(result2.list[2].atom.num == 4);
+    try expect(result2.list[0].atom.number == 1);
+    try expect(result2.list[1].atom.number == 2);
+    try expect(result2.list[2].atom.number == 4);
 
     // Step 3: a nested list "(1 13 (24 47) 8)"
     const s3 = "(1 13 (24 47) 8)";
     const result3 = try read_str(alloc, s3);
-    try expect(result3.list[0].atom.num == 1);
-    try expect(result3.list[1].atom.num == 13);
-    try expect(result3.list[2].list[0].atom.num == 24);
-    try expect(result3.list[2].list[1].atom.num == 47);
-    try expect(result3.list[3].atom.num == 8);
+    try expect(result3.list[0].atom.number == 1);
+    try expect(result3.list[1].atom.number == 13);
+    try expect(result3.list[2].list[0].atom.number == 24);
+    try expect(result3.list[2].list[1].atom.number == 47);
+    try expect(result3.list[3].atom.number == 8);
 
     // Step 4: nested lists with symbols
+    const s4 = "(+ 13 (- 24 47) 8)";
+    const plus = "+";
+    const copied = try alloc.dupe(u8, plus);
+    const result4 = try read_str(alloc, s4);
+    try expect(std.mem.eql(u8, copied, result4.list[0].atom.symbol));
+
     // Step 5: wrong syntax, errors
 }
 
