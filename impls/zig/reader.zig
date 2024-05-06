@@ -8,6 +8,7 @@ pub const Token = struct {
     pub const Tag = enum {
         number,
         symbol,
+        keyword,
         leftParen,
         rightParen,
         leftSquare,
@@ -42,6 +43,7 @@ const Tokenizer = struct {
             '(', ')', '[', ']' => self.tokenizeBrace(),
             '0'...'9' => self.tokenize(.number),
             '-' => self.tokenizeMinus(),
+            ':' => self.tokenize(.keyword),
             else => self.tokenize(.symbol),
         };
         self.pos += 1;
@@ -195,6 +197,10 @@ const Reader = struct {
                 return atom;
             },
             .symbol => {
+                atom.* = Atom{ .symbol = buf };
+                return atom;
+            },
+            .keyword => {
                 atom.* = Atom{ .symbol = buf };
                 return atom;
             },

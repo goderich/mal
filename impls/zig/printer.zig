@@ -19,6 +19,7 @@ fn pr_atom(atom: *reader.Atom) !void {
     switch (atom.*) {
         .number => try stdout.writer().print("{d}", .{atom.number}),
         .symbol => try stdout.writer().print("{s}", .{atom.symbol}),
+        .keyword => try stdout.writer().print("{s}", .{atom.keyword}),
     }
 }
 
