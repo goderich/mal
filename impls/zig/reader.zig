@@ -6,11 +6,12 @@ pub const Token = struct {
     loc: Loc,
 
     pub const Tag = enum {
-        // We'll start small
         number,
         symbol,
         leftParen,
         rightParen,
+        leftSquare,
+        rightSquare,
     };
 
     pub const Loc = struct {
@@ -38,7 +39,7 @@ const Tokenizer = struct {
         if (self.onEOF()) return null;
 
         const token: Token = switch (self.str[self.pos]) {
-            '(', ')' => self.tokenizeBrace(),
+            '(', ')', '[', ']' => self.tokenizeBrace(),
             '0'...'9' => self.tokenize(.number),
             '-' => self.tokenizeMinus(),
             else => self.tokenize(.symbol),
@@ -56,8 +57,8 @@ const Tokenizer = struct {
 
     fn tokenize(self: *Self, tag: Token.Tag) Token {
         const begin = self.pos;
-        while (!self.onEOF() and !self.onWhitespace() and !self.onRightParen()) self.pos += 1;
-        self.pos -= 1;
+        while (!self.onEOF() and !self.onWhitespace() and !self.onRightBrace()) self.pos += 1;
+        if (self.pos > 0) self.pos -= 1;
         return Token{ .tag = tag, .loc = .{ .begin = begin, .end = self.pos } };
     }
 
@@ -65,16 +66,21 @@ const Tokenizer = struct {
         const tag: Token.Tag = switch (self.str[self.pos]) {
             '(' => .leftParen,
             ')' => .rightParen,
+            '[' => .leftSquare,
+            ']' => .rightSquare,
             else => unreachable,
         };
         return .{ .tag = tag, .loc = .{ .begin = self.pos, .end = self.pos } };
     }
 
     fn tokenizeMinus(self: *Self) Token {
-        switch (self.str[self.pos + 1]) {
-            '0'...'9' => return self.tokenize(.number),
-            else => return self.tokenize(.symbol),
+        if (self.str.len > self.pos + 1) {
+            switch (self.str[self.pos + 1]) {
+                '0'...'9' => return self.tokenize(.number),
+                else => return self.tokenize(.symbol),
+            }
         }
+        return self.tokenize(.symbol);
     }
 
     fn onWhitespace(self: *Self) bool {
@@ -82,8 +88,9 @@ const Tokenizer = struct {
         return contains(&chars, self.str[self.pos]);
     }
 
-    fn onRightParen(self: *Self) bool {
-        return self.str[self.pos] == ')';
+    fn onRightBrace(self: *Self) bool {
+        const chars = [_]u8{ ')', ']', '}' };
+        return contains(&chars, self.str[self.pos]);
     }
 
     fn onEOF(self: *Self) bool {
@@ -133,6 +140,7 @@ pub const Atom = union(enum) {
 pub const Ast = union(enum) {
     atom: *Atom,
     list: []Ast,
+    vector: []Ast,
 };
 
 pub fn read_str(alloc: mem.Allocator, str: []const u8) !Ast {
@@ -165,6 +173,7 @@ const Reader = struct {
         if (self.tokenizer.next()) |token| {
             switch (token.tag) {
                 .leftParen => return Ast{ .list = try self.read_list(token) },
+                .leftSquare => return Ast{ .vector = try self.read_list(token) },
                 else => return Ast{ .atom = try self.read_atom(token) },
             }
         } else return ReadError.Err;
@@ -194,19 +203,19 @@ const Reader = struct {
     }
 
     fn read_list(self: *Self, token: Token) anyerror![]Ast {
-        const until = switch (token.tag) {
+        const until: Token.Tag = switch (token.tag) {
             .leftParen => .rightParen,
+            .leftSquare => .rightSquare,
             else => unreachable,
         };
 
         var list = std.ArrayList(Ast).init(self.alloc);
         while (self.tokenizer.peek()) |t| {
-            switch (t.tag) {
-                until => {
-                    self.tokenizer.pos += 1;
-                    return list.toOwnedSlice();
-                },
-                else => try list.append(try self.read_form()),
+            if (t.tag == until) {
+                self.tokenizer.pos += 1;
+                return list.toOwnedSlice();
+            } else {
+                try list.append(try self.read_form());
             }
         }
         return ReadError.UnexpectedEndOfList;
@@ -245,7 +254,7 @@ test "Reader" {
     try expect(result3.list[3].atom.number == 8);
 
     // Step 4: nested lists with symbols
-    const s4 = "(+ 13 (- 24 47) 8)";
+    const s4 = "(+ 13 [- 24 47] 8)";
     const plus = "+";
     const copied = try alloc.dupe(u8, plus);
     const result4 = try read_str(alloc, s4);

@@ -6,7 +6,6 @@ dist: mal
 
 %: %.zig
 	zig build
-	# mv zig-out/bin/$@ .
 
 .PHONY: clean
 
