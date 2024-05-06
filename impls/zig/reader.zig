@@ -127,7 +127,7 @@ const Tokenizer = struct {
 
 //// READER
 
-const ReadError = error{
+pub const ReadError = error{
     Err,
     UnexpectedEndOfList,
 };
@@ -261,6 +261,11 @@ test "Reader" {
     try expect(std.mem.eql(u8, copied, result4.list[0].atom.symbol));
 
     // Step 5: wrong syntax, errors
+    const s5 = "(+ 13 ";
+    _ = read_str(alloc, s5) catch |err| {
+        try expect(err == ReadError.UnexpectedEndOfList);
+        return;
+    };
 }
 
 // Helper functions

@@ -42,6 +42,13 @@ fn pr_vector(ast: reader.Ast) !void {
     try stdout.writeAll("]");
 }
 
+pub fn pr_err(err: anyerror) !void {
+    switch (err) {
+        reader.ReadError.UnexpectedEndOfList => try stdout.writeAll("Error: unbalanced parentheses.\n"),
+        else => try stdout.writeAll("Error: general error."),
+    }
+}
+
 test "print" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

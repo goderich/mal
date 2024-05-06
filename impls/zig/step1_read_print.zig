@@ -10,13 +10,15 @@ fn EVAL(ast: reader.Ast) reader.Ast {
     return ast;
 }
 
-// return string instead? might not be testable otherwise
 fn PRINT(ast: reader.Ast) !void {
     try printer.pr_str(ast);
 }
 
 fn rep(alloc: std.mem.Allocator, str: []const u8) !void {
-    const ast = try READ(alloc, str);
+    const ast = READ(alloc, str) catch |err| {
+        try printer.pr_err(err);
+        return;
+    };
     const evalled_ast = EVAL(ast);
     try PRINT(evalled_ast);
 }
