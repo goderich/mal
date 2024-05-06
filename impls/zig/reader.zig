@@ -131,12 +131,13 @@ const Tokenizer = struct {
 
 pub const ReadError = error{
     Err,
-    UnexpectedEndOfList,
+    UnbalancedParentheses,
 };
 
 pub const Atom = union(enum) {
     number: isize,
     symbol: []const u8,
+    keyword: []const u8,
 };
 
 pub const Ast = union(enum) {
@@ -176,6 +177,9 @@ const Reader = struct {
             switch (token.tag) {
                 .leftParen => return Ast{ .list = try self.read_list(token) },
                 .leftSquare => return Ast{ .vector = try self.read_list(token) },
+                // TODO: right now the below does not work because I stop reading
+                // one the parentheses are balanced.
+                .rightParen, .rightSquare => return ReadError.UnbalancedParentheses,
                 else => return Ast{ .atom = try self.read_atom(token) },
             }
         } else return ReadError.Err;
@@ -224,7 +228,7 @@ const Reader = struct {
                 try list.append(try self.read_form());
             }
         }
-        return ReadError.UnexpectedEndOfList;
+        return ReadError.UnbalancedParentheses;
     }
 };
 
@@ -269,7 +273,13 @@ test "Reader" {
     // Step 5: wrong syntax, errors
     const s5 = "(+ 13 ";
     _ = read_str(alloc, s5) catch |err| {
-        try expect(err == ReadError.UnexpectedEndOfList);
+        try expect(err == ReadError.UnbalancedParentheses);
+        return;
+    };
+
+    const s6 = "(+))";
+    _ = read_str(alloc, s6) catch |err| {
+        try expect(err == ReadError.UnbalancedParentheses);
         return;
     };
 }

@@ -36,16 +36,16 @@ fn pr_list(ast: reader.Ast) !void {
 fn pr_vector(ast: reader.Ast) !void {
     try stdout.writeAll("[");
     var i: usize = 0;
-    while (i < ast.list.len) : (i += 1) {
-        try pr_ast(ast.list[i]);
-        if (i < ast.list.len - 1) try stdout.writeAll(" ");
+    while (i < ast.vector.len) : (i += 1) {
+        try pr_ast(ast.vector[i]);
+        if (i < ast.vector.len - 1) try stdout.writeAll(" ");
     }
     try stdout.writeAll("]");
 }
 
 pub fn pr_err(err: anyerror) !void {
     switch (err) {
-        reader.ReadError.UnexpectedEndOfList => try stdout.writeAll("Error: unbalanced parentheses.\n"),
+        reader.ReadError.UnbalancedParentheses => try stdout.writeAll("Error: unbalanced parentheses.\n"),
         else => try stdout.writeAll("Error: general error."),
     }
 }
