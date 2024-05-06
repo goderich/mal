@@ -31,12 +31,14 @@ const Tokenizer = struct {
 
     pub fn next(self: *Self) ?Token {
         // Fast-forward through whitespace
+        // TODO: I will need a loop here that can take care of
+        // multi-line comments and empty lines.
         while (!self.onEOF() and self.onWhitespace()) self.pos += 1;
+        if (!self.onEOF() and self.onSemicolon()) self.skipComment();
         if (self.onEOF()) return null;
 
         const token: Token = switch (self.str[self.pos]) {
-            '(' => .{ .tag = .leftParen, .loc = .{ .begin = self.pos, .end = self.pos } },
-            ')' => .{ .tag = .rightParen, .loc = .{ .begin = self.pos, .end = self.pos } },
+            '(', ')' => self.tokenizeBrace(),
             '0'...'9' => self.tokenize(.number),
             '-' => self.tokenizeMinus(),
             else => self.tokenize(.symbol),
@@ -59,6 +61,15 @@ const Tokenizer = struct {
         return Token{ .tag = tag, .loc = .{ .begin = begin, .end = self.pos } };
     }
 
+    fn tokenizeBrace(self: *Self) Token {
+        const tag: Token.Tag = switch (self.str[self.pos]) {
+            '(' => .leftParen,
+            ')' => .rightParen,
+            else => unreachable,
+        };
+        return .{ .tag = tag, .loc = .{ .begin = self.pos, .end = self.pos } };
+    }
+
     fn tokenizeMinus(self: *Self) Token {
         switch (self.str[self.pos + 1]) {
             '0'...'9' => return self.tokenize(.number),
@@ -77,6 +88,18 @@ const Tokenizer = struct {
 
     fn onEOF(self: *Self) bool {
         return self.pos >= self.str.len;
+    }
+
+    fn onNewline(self: *Self) bool {
+        return self.str[self.pos] == '\n';
+    }
+
+    fn onSemicolon(self: *Self) bool {
+        return self.str[self.pos] == ';';
+    }
+
+    fn skipComment(self: *Self) void {
+        while (!self.onEOF() and !self.onNewline()) self.pos += 1;
     }
 };
 
@@ -173,7 +196,7 @@ const Reader = struct {
     fn read_list(self: *Self, token: Token) anyerror![]Ast {
         const until = switch (token.tag) {
             .leftParen => .rightParen,
-            else => return ReadError.Err,
+            else => unreachable,
         };
 
         var list = std.ArrayList(Ast).init(self.alloc);

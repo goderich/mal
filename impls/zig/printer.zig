@@ -36,11 +36,15 @@ test "print" {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const str =
+    const str1 = "     143   ";
+    const result1 = try reader.read_str(alloc, str1);
+    try pr_str(result1);
+
+    const str2 =
         \\ (+ 123    12  -17 1 143
         \\ 	(- 13   (+  3))
         \\ )
     ;
-    const result4 = try reader.read_str(alloc, str);
-    try pr_str(result4);
+    const result2 = try reader.read_str(alloc, str2);
+    try pr_str(result2);
 }
