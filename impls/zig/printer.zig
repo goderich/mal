@@ -11,6 +11,7 @@ fn pr_ast(ast: reader.Ast) anyerror!void {
     switch (ast) {
         .atom => try pr_atom(ast.atom),
         .list => try pr_list(ast),
+        .vector => try pr_vector(ast),
     }
 }
 
@@ -29,6 +30,16 @@ fn pr_list(ast: reader.Ast) !void {
         if (i < ast.list.len - 1) try stdout.writeAll(" ");
     }
     try stdout.writeAll(")");
+}
+
+fn pr_vector(ast: reader.Ast) !void {
+    try stdout.writeAll("[");
+    var i: usize = 0;
+    while (i < ast.list.len) : (i += 1) {
+        try pr_ast(ast.list[i]);
+        if (i < ast.list.len - 1) try stdout.writeAll(" ");
+    }
+    try stdout.writeAll("]");
 }
 
 test "print" {
