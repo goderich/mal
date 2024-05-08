@@ -1,6 +1,8 @@
 const std = @import("std");
 const mem = std.mem;
 
+// ~~~~~TOKENIZER~~~~~
+
 pub const Token = struct {
     tag: Tag,
     loc: Loc,
@@ -112,22 +114,7 @@ const Tokenizer = struct {
     }
 };
 
-// test "Tokenizer tests" {
-//     var r = Tokenizer{ .str =
-//     \\ (123    12  -17 1 143
-//     \\ 	(+ 13   (3)))
-//     };
-//     std.debug.print("\n", .{});
-//     while (true) {
-//         if (r.next()) |token| {
-//             std.debug.print("{any}\n", .{token});
-//         } else break;
-//     }
-// }
-
-// TODO: test str ending in whitespace, and ending on a paren
-
-//// READER
+// ~~~~~READER~~~~~
 
 pub const ReadError = error{
     Err,
@@ -267,9 +254,10 @@ test "Reader" {
     // Step 4: nested lists with symbols
     const s4 = "(+ 13 [- 24 47] 8)";
     const plus = "+";
-    const copied = try alloc.dupe(u8, plus);
+    const minus = "-";
     const result4 = try read_str(alloc, s4);
-    try expect(std.mem.eql(u8, copied, result4.list[0].atom.symbol));
+    try expect(std.mem.eql(u8, plus, result4.list[0].atom.symbol));
+    try expect(std.mem.eql(u8, minus, result4.list[2].vector[0].atom.symbol));
 
     // Step 5: wrong syntax, errors
     const s5 = "(+ 13 ";
@@ -279,7 +267,7 @@ test "Reader" {
     try expectErr(ReadError.UnbalancedParentheses, read_str(alloc, s6));
 }
 
-// Helper functions
+// ~~~~~Helper functions~~~~~
 
 /// Check if CHAR is contained in LIST.
 fn contains(list: []const u8, char: u8) bool {
