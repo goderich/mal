@@ -178,7 +178,7 @@ const Reader = struct {
                 .leftParen => return Ast{ .list = try self.read_list(token) },
                 .leftSquare => return Ast{ .vector = try self.read_list(token) },
                 // TODO: right now the below does not work because I stop reading
-                // one the parentheses are balanced.
+                // once the initial parentheses are balanced.
                 .rightParen, .rightSquare => return ReadError.UnbalancedParentheses,
                 else => return Ast{ .atom = try self.read_atom(token) },
             }
@@ -234,6 +234,7 @@ const Reader = struct {
 
 test "Reader" {
     const expect = std.testing.expect;
+    const expectErr = std.testing.expectError;
 
     // Using an arena in tests to free all memory at once.
     // In actual usage, the caller will own (and free) the memory,
@@ -272,16 +273,10 @@ test "Reader" {
 
     // Step 5: wrong syntax, errors
     const s5 = "(+ 13 ";
-    _ = read_str(alloc, s5) catch |err| {
-        try expect(err == ReadError.UnbalancedParentheses);
-        return;
-    };
+    try expectErr(ReadError.UnbalancedParentheses, read_str(alloc, s5));
 
-    const s6 = "(+))";
-    _ = read_str(alloc, s6) catch |err| {
-        try expect(err == ReadError.UnbalancedParentheses);
-        return;
-    };
+    const s6 = "(+)))";
+    try expectErr(ReadError.UnbalancedParentheses, read_str(alloc, s6));
 }
 
 // Helper functions
