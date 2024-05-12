@@ -1,5 +1,13 @@
 package reader
 
+///// Error types
+
+Error :: enum {
+    none = 0,
+    unbalanced_parentheses,
+    parse_int_error,
+}
+
 ///// Tokenizer types
 
 Token :: struct {

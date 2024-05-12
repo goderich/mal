@@ -5,9 +5,9 @@ import "core:os"
 
 import "reader"
 
-READ :: proc(s: string) -> reader.Ast {
-    ast := reader.read_str(s)
-    return ast
+READ :: proc(s: string) -> (reader.Ast, reader.Error) {
+    ast, err := reader.read_str(s)
+    return ast, err
 }
 
 EVAL :: proc(ast: reader.Ast) -> reader.Ast {
@@ -18,11 +18,11 @@ PRINT :: proc(ast: reader.Ast) -> string {
     return reader.pr_str(ast)
 }
 
-rep :: proc(s: string) -> string {
-    r := READ(s)
+rep :: proc(s: string) -> (p: string, err: reader.Error) {
+    r := READ(s) or_return
     e := EVAL(r)
-    p := PRINT(e)
-    return p
+    p = PRINT(e)
+    return p, .none
 }
 
 main :: proc() {
@@ -36,7 +36,12 @@ main :: proc() {
             // Handle error
             return
         }
-        r := rep(string(buf[:n]))
-        fmt.println(r)
+
+        r, rep_err := rep(string(buf[:n]))
+        if rep_err != nil {
+            fmt.println(err)
+        } else {
+            fmt.println(r)
+        }
     }
 }

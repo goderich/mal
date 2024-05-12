@@ -138,13 +138,10 @@ tokenizer_on_whitespace :: proc(using tokenizer: ^Tokenizer) -> bool {
 // READER
 ////////////////////
 
-read_str :: proc(str: string) -> Ast {
-    // Instructions:
-    // This function will call tokenize and then create a new Reader object instance with the tokens.
-    // Then it will call read_form with the Reader instance.
+read_str :: proc(str: string) -> (Ast, Error) {
     r := reader_create(str)
-    f, ok := read_form(&r)
-    return f
+    f, err := read_form(&r)
+    return f, err
 }
 
 reader_create :: proc(str: string) -> Reader {
@@ -152,44 +149,50 @@ reader_create :: proc(str: string) -> Reader {
     return Reader{tokenizer = t, ast = nil}
 }
 
-read_form :: proc(reader: ^Reader) -> (ast: Ast, ok: bool) {
+read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
     t := next_token(&reader.tokenizer)
     #partial switch t.tag {
     case Tag.left_paren:
-        ast = read_list(reader)
+        ast, err = read_list(reader)
     case Tag.left_square:
-        ast = read_vector(reader)
+        ast, err = read_vector(reader)
     case:
-        ast, ok = read_atom(reader, t)
+        ast, err = read_atom(reader, t)
     }
-    return ast, ok
+    return ast, err
 }
 
-read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, ok: bool) {
+read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
     switch t.tag {
     case .number:
         s := reader.str[t.loc.begin:t.loc.end + 1]
+        ok: bool
         atom, ok = strconv.parse_int(s, 10)
+        if !ok do err = .parse_int_error
     case .symbol:
         atom = Symbol(reader.str[t.loc.begin:t.loc.end + 1])
     case .keyword:
         atom = Keyword(reader.str[t.loc.begin:t.loc.end + 1])
-    case .left_paren, .right_paren, .left_square, .right_square, .left_curly, .right_curly, .end:
-        return nil, false
+    case .right_paren, .right_square, .right_curly:
+        return nil, .unbalanced_parentheses
+    case .left_paren, .left_square, .left_curly:
+        return nil, .unbalanced_parentheses
+    case .end:
+        return nil, .unbalanced_parentheses
     }
-    return atom, true
+    return atom, err
 }
 
-read_list :: proc(reader: ^Reader, until: rune = ')') -> []Ast {
+read_list :: proc(reader: ^Reader, until: rune = ')') -> ([]Ast, Error) {
     list: [dynamic]Ast
     for {
-        using reader.tokenizer
         eofp := tokenizer_skip_whitespace(&reader.tokenizer)
-        // TODO: handle eofp
+        if eofp do return list[:], .unbalanced_parentheses
 
+        using reader.tokenizer
         if rune(str[pos]) == until {
             pos += 1
-            return list[:]
+            return list[:], .none
         } else {
             f, _ := read_form(reader)
             append(&list, f)
@@ -197,9 +200,9 @@ read_list :: proc(reader: ^Reader, until: rune = ')') -> []Ast {
     }
 }
 
-read_vector :: proc(reader: ^Reader) -> Vector {
-    list := read_list(reader, ']')
-    return Vector(list)
+read_vector :: proc(reader: ^Reader) -> (Vector, Error) {
+    list, err := read_list(reader, ']')
+    return Vector(list), err
 }
 
 // main :: proc() {
