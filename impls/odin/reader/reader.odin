@@ -5,39 +5,11 @@ import "core:unicode/utf8"
 import "core:strings"
 import "core:strconv"
 
+EOF :: utf8.RUNE_EOF
+
 ////////////////////
 // TOKENIZER
 ////////////////////
-
-EOF :: utf8.RUNE_EOF
-
-Token :: struct {
-    tag: Tag,
-    loc: Loc,
-}
-
-Tag :: enum {
-    number,
-    symbol,
-    keyword,
-    left_paren,
-    right_paren,
-    left_square,
-    right_square,
-    left_curly,
-    right_curly,
-    end,
-}
-
-Loc :: struct {
-    begin: int,
-    end: int,
-}
-
-Tokenizer :: struct {
-    str: string,
-    pos: int,
-}
 
 next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     eofp := tokenizer_skip_whitespace(tokenizer)
@@ -166,33 +138,6 @@ tokenizer_on_whitespace :: proc(using tokenizer: ^Tokenizer) -> bool {
 // READER
 ////////////////////
 
-Atom :: union {
-    int,
-    Symbol,
-    Keyword,
-}
-
-Symbol :: distinct string
-Keyword :: distinct string
-
-Ast :: union {
-    Atom,
-    []Ast,
-    Vector,
-}
-
-Vector :: distinct []Ast
-
-Reader :: struct {
-    using tokenizer: Tokenizer,
-    ast: Ast,
-}
-
-reader_create :: proc(str: string) -> Reader {
-    t := Tokenizer{str = str, pos = 0}
-    return Reader{tokenizer = t, ast = nil}
-}
-
 read_str :: proc(str: string) -> Ast {
     // Instructions:
     // This function will call tokenize and then create a new Reader object instance with the tokens.
@@ -200,6 +145,11 @@ read_str :: proc(str: string) -> Ast {
     r := reader_create(str)
     f, ok := read_form(&r)
     return f
+}
+
+reader_create :: proc(str: string) -> Reader {
+    t := Tokenizer{str = str, pos = 0}
+    return Reader{tokenizer = t, ast = nil}
 }
 
 read_form :: proc(reader: ^Reader) -> (ast: Ast, ok: bool) {
@@ -252,17 +202,8 @@ read_vector :: proc(reader: ^Reader) -> Vector {
     return Vector(list)
 }
 
-main :: proc() {
-    s := "(+ 1 [* 4 5 :kw] 2 3)"
-    // t := Tokenizer{str = s, pos = 0}
-    // toc: Token
-    // for {
-    //     toc := next_token(&t)
-    //     if toc.tag == Tag.end do break
-    //     fmt.println(toc)
-    //     fmt.println("pos =", t.pos)
-    // }
-
-    ast := read_str(s)
-    fmt.println(ast)
-}
+// main :: proc() {
+//     s := "(+ 1 [* 4 5 :kw] 2 3)"
+//     ast := read_str(s)
+//     fmt.println(ast)
+// }
