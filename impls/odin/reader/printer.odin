@@ -11,6 +11,10 @@ pr_str :: proc(ast: Ast) -> string {
             sb := strings.builder_make()
             strings.write_int(&sb, a)
             return strings.to_string(sb)
+        case string:
+            sb := strings.builder_make()
+            strings.write_quoted_string(&sb, a)
+            return strings.to_string(sb)
         case Symbol:
             return string(a)
         case Keyword:

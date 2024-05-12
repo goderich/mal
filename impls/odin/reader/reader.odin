@@ -25,6 +25,8 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
         t = tokenize(tokenizer, Tag.number)
     case ':':
         t = tokenize(tokenizer, Tag.keyword)
+    case '"':
+        t = tokenize_string(tokenizer)
     case 'n':
         t = tokenize_nil(tokenizer)
     case 't':
@@ -114,6 +116,24 @@ tokenize_number :: proc(using tokenizer: ^Tokenizer) -> Token {
     }
     end := pos - 1
     return Token{ Tag.number, Loc{begin, end} }
+}
+
+tokenize_string :: proc(using tokenizer: ^Tokenizer) -> Token {
+    begin := pos
+
+    loop: for {
+        switch next_char(tokenizer) {
+        case '\\':
+            pos += 1
+        case EOF:
+            pos -= 1
+            break loop
+        case '"':
+            break loop
+        }
+    }
+    end := pos
+    return Token{ Tag.STRING, Loc{begin, end} }
 }
 
 tokenize_nil :: proc(using tokenizer: ^Tokenizer) -> Token {
@@ -212,7 +232,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
     case .number:
         s := reader.str[t.loc.begin:t.loc.end + 1]
         ok: bool
-        atom, ok = strconv.parse_int(s, 10)
+        atom, ok = strconv.parse_int(strings.trim(s, "\n"), 10)
         if !ok do err = .parse_int_error
     case .NIL:
         atom = Primitives.Nil
@@ -224,6 +244,11 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         atom = Symbol(reader.str[t.loc.begin:t.loc.end + 1])
     case .keyword:
         atom = Keyword(reader.str[t.loc.begin:t.loc.end + 1])
+    case .STRING:
+        if rune(reader.str[t.loc.end]) != '"' {
+            return string(""), .unbalanced_quotes
+        }
+        atom = strings.trim(reader.str[t.loc.begin:t.loc.end + 1], "\"")
     case .right_paren, .right_square, .right_curly:
         return nil, .unbalanced_parentheses
     case .left_paren, .left_square, .left_curly:

@@ -5,6 +5,7 @@ package reader
 Error :: enum {
     none = 0,
     unbalanced_parentheses,
+    unbalanced_quotes,
     parse_int_error,
 }
 
@@ -19,6 +20,7 @@ Tag :: enum {
     number,
     symbol,
     keyword,
+    STRING,
 
     NIL,
     TRUE,
@@ -48,6 +50,7 @@ Tokenizer :: struct {
 
 Atom :: union {
     int,
+    string,
     Symbol,
     Keyword,
     Primitives,

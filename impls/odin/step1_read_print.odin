@@ -42,6 +42,10 @@ main :: proc() {
             #partial switch rep_err {
             case .unbalanced_parentheses:
                 fmt.println("Error: unbalanced parentheses.")
+            case .unbalanced_quotes:
+                fmt.println("Error: unbalanced quotes.")
+            case .parse_int_error:
+                fmt.println("Error: parse int error.")
             }
         } else {
             fmt.println(r)
