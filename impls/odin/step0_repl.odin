@@ -34,6 +34,6 @@ main :: proc() {
             return
         }
         r := rep(string(buf[:n]))
-        fmt.println("You said:", r)
+        fmt.println(r)
     }
 }
