@@ -19,11 +19,13 @@ Token :: struct {
 Tag :: enum {
     number,
     symbol,
-    // keyword,
+    keyword,
     left_paren,
     right_paren,
-    // left_square,
-    // right_square,
+    left_square,
+    right_square,
+    left_curly,
+    right_curly,
     end,
 }
 
@@ -45,10 +47,12 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     }
 
     switch rune(str[pos]) {
-    case '(', ')':
+    case '(', ')', '[', ']', '{', '}':
         t = tokenize_brace(tokenizer)
     case '0'..='9':
         t = tokenize(tokenizer, Tag.number)
+    case ':':
+        t = tokenize(tokenizer, Tag.keyword)
     case:
         t = tokenize(tokenizer, Tag.symbol)
     }
@@ -111,6 +115,14 @@ tokenize_brace :: proc(using tokenizer: ^Tokenizer) -> Token {
         t = Token{ Tag.left_paren, loc}
     case ')':
         t = Token{ Tag.right_paren, loc}
+    case '[':
+        t = Token{ Tag.left_square, loc}
+    case ']':
+        t = Token{ Tag.right_square, loc}
+    case '{':
+        t = Token{ Tag.left_curly, loc}
+    case '}':
+        t = Token{ Tag.right_curly, loc}
     }
     pos += 1
     return t
@@ -136,7 +148,7 @@ tokenizer_on_eof :: proc(using tokenizer: ^Tokenizer) -> bool {
 
 tokenizer_on_brace :: proc(using tokenizer: ^Tokenizer) -> bool {
     switch rune(str[pos]) {
-    case '(', ')':
+    case '(', ')', '[', ']', '{', '}':
         return true
     }
     return false
@@ -156,13 +168,20 @@ tokenizer_on_whitespace :: proc(using tokenizer: ^Tokenizer) -> bool {
 
 Atom :: union {
     int,
-    string,
+    Symbol,
+    Keyword,
 }
+
+Symbol :: distinct string
+Keyword :: distinct string
 
 Ast :: union {
     Atom,
     []Ast,
+    Vector,
 }
+
+Vector :: distinct []Ast
 
 Reader :: struct {
     using tokenizer: Tokenizer,
@@ -187,7 +206,9 @@ read_form :: proc(reader: ^Reader) -> (ast: Ast, ok: bool) {
     t := next_token(&reader.tokenizer)
     #partial switch t.tag {
     case Tag.left_paren:
-        ast = read_list(reader, t)
+        ast = read_list(reader)
+    case Tag.left_square:
+        ast = read_vector(reader)
     case:
         ast, ok = read_atom(reader, t)
     }
@@ -200,21 +221,16 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, ok: bool) {
         s := reader.str[t.loc.begin:t.loc.end + 1]
         atom, ok = strconv.parse_int(s, 10)
     case .symbol:
-        s := reader.str[t.loc.begin:t.loc.end + 1]
-        atom = s
-    case .left_paren, .right_paren, .end:
+        atom = Symbol(reader.str[t.loc.begin:t.loc.end + 1])
+    case .keyword:
+        atom = Keyword(reader.str[t.loc.begin:t.loc.end + 1])
+    case .left_paren, .right_paren, .left_square, .right_square, .left_curly, .right_curly, .end:
         return nil, false
     }
     return atom, true
 }
 
-read_list :: proc(reader: ^Reader, t: Token) -> []Ast {
-    until: rune
-    #partial switch t.tag {
-    case Tag.left_paren:
-        until = ')'
-    }
-
+read_list :: proc(reader: ^Reader, until: rune = ')') -> []Ast {
     list: [dynamic]Ast
     for {
         using reader.tokenizer
@@ -231,8 +247,13 @@ read_list :: proc(reader: ^Reader, t: Token) -> []Ast {
     }
 }
 
+read_vector :: proc(reader: ^Reader) -> Vector {
+    list := read_list(reader, ']')
+    return Vector(list)
+}
+
 main :: proc() {
-    s := "(+ 1 (* 4 5) 2 3)"
+    s := "(+ 1 [* 4 5 :kw] 2 3)"
     // t := Tokenizer{str = s, pos = 0}
     // toc: Token
     // for {
