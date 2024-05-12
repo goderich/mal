@@ -25,6 +25,12 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
         t = tokenize(tokenizer, Tag.number)
     case ':':
         t = tokenize(tokenizer, Tag.keyword)
+    case 'n':
+        t = tokenize_nil(tokenizer)
+    case 't':
+        t = tokenize_true(tokenizer)
+    case 'f':
+        t = tokenize_false(tokenizer)
     case:
         t = tokenize(tokenizer, Tag.symbol)
     }
@@ -66,11 +72,7 @@ tokenizer_peek :: proc(using tokenizer: ^Tokenizer) -> Token {
 tokenize :: proc(using tokenizer: ^Tokenizer, tag: Tag) -> Token {
     begin := pos
     for {
-        if tokenizer_on_eof(tokenizer) ||
-           tokenizer_on_whitespace(tokenizer) ||
-           tokenizer_on_brace(tokenizer) {
-            break
-           }
+        if tokenizer_not_on_atom(tokenizer) do break
         pos += 1
         continue
     }
@@ -112,6 +114,49 @@ tokenize_number :: proc(using tokenizer: ^Tokenizer) -> Token {
     }
     end := pos - 1
     return Token{ Tag.number, Loc{begin, end} }
+}
+
+tokenize_nil :: proc(using tokenizer: ^Tokenizer) -> Token {
+    begin := pos
+    if next_char(tokenizer) == 'i' &&
+        next_char(tokenizer) == 'l' &&
+        tokenizer_not_on_atom(tokenizer, 1) {
+             return Token{ Tag.NIL, Loc{ begin, pos - 1} }
+        }
+    pos = begin
+    return tokenize(tokenizer, Tag.symbol)
+}
+
+tokenize_true :: proc(using tokenizer: ^Tokenizer) -> Token {
+    begin := pos
+    if next_char(tokenizer) == 'r' &&
+        next_char(tokenizer) == 'u' &&
+        next_char(tokenizer) == 'e' &&
+        tokenizer_not_on_atom(tokenizer, 1) {
+             return Token{ Tag.TRUE, Loc{ begin, pos - 1} }
+        }
+    pos = begin
+    return tokenize(tokenizer, Tag.symbol)
+}
+
+tokenize_false :: proc(using tokenizer: ^Tokenizer) -> Token {
+    begin := pos
+    if next_char(tokenizer) == 'a' &&
+        next_char(tokenizer) == 'l' &&
+        next_char(tokenizer) == 's' &&
+        next_char(tokenizer) == 'e' &&
+        tokenizer_not_on_atom(tokenizer, 1) {
+             return Token{ Tag.FALSE, Loc{ begin, pos - 1} }
+        }
+    pos = begin
+    return tokenize(tokenizer, Tag.symbol)
+}
+
+tokenizer_not_on_atom :: proc(tokenizer: ^Tokenizer, offset := 0) -> bool {
+    tokenizer.pos += offset
+    return tokenizer_on_eof(tokenizer) ||
+           tokenizer_on_whitespace(tokenizer) ||
+           tokenizer_on_brace(tokenizer)
 }
 
 tokenizer_on_eof :: proc(using tokenizer: ^Tokenizer) -> bool {
@@ -169,6 +214,12 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         ok: bool
         atom, ok = strconv.parse_int(s, 10)
         if !ok do err = .parse_int_error
+    case .NIL:
+        atom = Primitives.Nil
+    case .TRUE:
+        atom = Primitives.True
+    case .FALSE:
+        atom = Primitives.False
     case .symbol:
         atom = Symbol(reader.str[t.loc.begin:t.loc.end + 1])
     case .keyword:
@@ -206,7 +257,7 @@ read_vector :: proc(reader: ^Reader) -> (Vector, Error) {
 }
 
 // main :: proc() {
-//     s := "(+ 1 [* 4 5 :kw] 2 3)"
-//     ast := read_str(s)
+//     s := "(+ 1 [* 4 5 :kw] nil 3)"
+//     ast, err := read_str(s)
 //     fmt.println(ast)
 // }

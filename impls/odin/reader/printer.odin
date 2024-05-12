@@ -15,6 +15,9 @@ pr_str :: proc(ast: Ast) -> string {
             return string(a)
         case Keyword:
             return string(a)
+        case Primitives:
+            s, ok := fmt.enum_value_to_string(a)
+            return strings.to_lower(s)
         }
     case []Ast:
         return pr_list(t)
@@ -48,13 +51,3 @@ write_items :: proc(sb: ^strings.Builder, items: []Ast) {
         }
     }
 }
-
-// main :: proc() {
-//     s := "(  +  1  [ *   3  8 ] )    "
-//     ast := read_str(s)
-//     fmt.println(pr_str(ast))
-    // sb := strings.builder_make()
-    // list := [?]int{1, 2, 3}
-    // fmt.sbprint(&sb, expand_values(list))
-    // fmt.println(strings.to_string(sb))
-// }

@@ -19,12 +19,18 @@ Tag :: enum {
     number,
     symbol,
     keyword,
+
+    NIL,
+    TRUE,
+    FALSE,
+
     left_paren,
     right_paren,
     left_square,
     right_square,
     left_curly,
     right_curly,
+
     end,
 }
 
@@ -44,10 +50,17 @@ Atom :: union {
     int,
     Symbol,
     Keyword,
+    Primitives,
 }
 
 Symbol :: distinct string
 Keyword :: distinct string
+
+Primitives :: enum {
+    True,
+    False,
+    Nil,
+}
 
 Ast :: union {
     Atom,
