@@ -39,7 +39,10 @@ main :: proc() {
 
         r, rep_err := rep(string(buf[:n]))
         if rep_err != nil {
-            fmt.println(err)
+            #partial switch rep_err {
+            case .unbalanced_parentheses:
+                fmt.println("Error: unbalanced parentheses.")
+            }
         } else {
             fmt.println(r)
         }

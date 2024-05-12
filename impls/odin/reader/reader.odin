@@ -241,10 +241,13 @@ read_list :: proc(reader: ^Reader, until: rune = ')') -> ([]Ast, Error) {
         if eofp do return list[:], .unbalanced_parentheses
 
         using reader.tokenizer
-        if rune(str[pos]) == until {
+        switch rune(str[pos]) {
+        case until:
             pos += 1
             return list[:], .none
-        } else {
+        case ']', ')', '}':
+            return list[:], .unbalanced_parentheses
+        case:
             f, _ := read_form(reader)
             append(&list, f)
         }
