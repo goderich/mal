@@ -2,14 +2,14 @@ STEPS = step0_repl step1_read_print step2_eval step3_env step4_if_fn_do step5_tc
 
 all: $(STEPS)
 
-step0_repl: step0_repl/step0_repl.odin
-	cd step0_repl && odin build .
+step0_repl: step0_repl.odin
+	odin build $@.odin -file
 
-step1_read_print: step1_read_print/step1_read_print.odin
-	cd step1_read_print && odin build .
+step1_read_print: step1_read_print.odin
+	odin build $@.odin -file
 
-# %: %/%.odin
-# 	cd $@ && odin build .
+# %: %.odin
+# 	odin build $@.odin -file
 
 .PHONY: clean $(STEPS)
 
