@@ -2,14 +2,12 @@ STEPS = step0_repl step1_read_print step2_eval step3_env step4_if_fn_do step5_tc
 
 all: $(STEPS)
 
-step0_repl: step0_repl.odin
-	odin build $@.odin -file
-
-step1_read_print: step1_read_print.odin
-	odin build $@.odin -file
-
-# %: %.odin
-# 	odin build $@.odin -file
+# This is a 'Static Pattern Rule'.
+# It works on any member of STEPS,
+# capturing the input with % and checking
+# if the corresponding .odin file exists.
+$(STEPS): %: %.odin
+	odin build $< -file
 
 .PHONY: clean $(STEPS)
 
