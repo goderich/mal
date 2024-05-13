@@ -248,7 +248,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         if rune(reader.str[t.loc.end]) != '"' {
             return string(""), .unbalanced_quotes
         }
-        atom = strings.trim(reader.str[t.loc.begin:t.loc.end + 1], "\"")
+        atom = read_string(reader.str[t.loc.begin + 1:t.loc.end])
     case .right_paren, .right_square, .right_curly:
         return nil, .unbalanced_parentheses
     case .left_paren, .left_square, .left_curly:
@@ -282,6 +282,28 @@ read_list :: proc(reader: ^Reader, until: rune = ')') -> ([]Ast, Error) {
 read_vector :: proc(reader: ^Reader) -> (Vector, Error) {
     list, err := read_list(reader, ']')
     return Vector(list), err
+}
+
+read_string :: proc(s: string) -> string {
+    sb := strings.builder_make()
+
+    for i := 0; i < len(s); i += 1 {
+        if rune(s[i]) == '\\' {
+            switch rune(s[i+1]) {
+            case '\\':
+                strings.write_rune(&sb, '\\')
+            case 'n':
+                strings.write_rune(&sb, '\n')
+            case '"':
+                strings.write_rune(&sb, '\"')
+            }
+            i += 1
+            if i >= len(s) - 1 do break
+        } else {
+            strings.write_rune(&sb, rune(s[i]))
+        }
+    }
+    return strings.to_string(sb)
 }
 
 // main :: proc() {
