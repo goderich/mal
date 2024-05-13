@@ -228,7 +228,8 @@ read_list :: proc(reader: ^Reader, until: rune = ')') -> ([]Ast, Error) {
         case ']', ')', '}':
             return list[:], .unbalanced_parentheses
         case:
-            f, _ := read_form(reader)
+            f, err := read_form(reader)
+            if err != nil do return list[:], err
             append(&list, f)
         }
     }
