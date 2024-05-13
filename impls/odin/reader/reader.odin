@@ -14,7 +14,7 @@ EOF :: utf8.RUNE_EOF
 next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     eofp := tokenizer_skip_whitespace(tokenizer)
     if eofp {
-        t.tag = Tag.end
+        t.tag = Tag.END
         return t
     }
 
@@ -22,13 +22,13 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     case '(', ')', '[', ']', '{', '}':
         t = tokenize_brace(tokenizer)
     case '0'..='9':
-        t = tokenize(tokenizer, Tag.number)
+        t = tokenize(tokenizer, Tag.NUMBER)
     case ':':
-        t = tokenize(tokenizer, Tag.keyword)
+        t = tokenize(tokenizer, Tag.KEYWORD)
     case '"':
         t = tokenize_string(tokenizer)
     case:
-        t = tokenize(tokenizer, Tag.symbol)
+        t = tokenize(tokenizer, Tag.SYMBOL)
     }
     return t
 }
@@ -74,17 +74,17 @@ tokenize_brace :: proc(using tokenizer: ^Tokenizer) -> Token {
     t: Token
     switch get_char(tokenizer) {
     case '(':
-        t = Token{ Tag.left_paren, loc}
+        t = Token{ Tag.LEFT_PAREN, loc}
     case ')':
-        t = Token{ Tag.right_paren, loc}
+        t = Token{ Tag.RIGHT_PAREN, loc}
     case '[':
-        t = Token{ Tag.left_square, loc}
+        t = Token{ Tag.LEFT_SQUARE, loc}
     case ']':
-        t = Token{ Tag.right_square, loc}
+        t = Token{ Tag.RIGHT_SQUARE, loc}
     case '{':
-        t = Token{ Tag.left_curly, loc}
+        t = Token{ Tag.LEFT_CURLY, loc}
     case '}':
-        t = Token{ Tag.right_curly, loc}
+        t = Token{ Tag.RIGHT_CURLY, loc}
     }
     pos += 1
     return t
@@ -101,7 +101,7 @@ tokenize_number :: proc(using tokenizer: ^Tokenizer) -> Token {
         break
     }
     end := pos - 1
-    return Token{ Tag.number, Loc{begin, end} }
+    return Token{ Tag.NUMBER, Loc{begin, end} }
 }
 
 tokenize_string :: proc(using tokenizer: ^Tokenizer) -> Token {
@@ -168,9 +168,9 @@ reader_create :: proc(str: string) -> Reader {
 read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
     t := next_token(&reader.tokenizer)
     #partial switch t.tag {
-    case Tag.left_paren:
+    case Tag.LEFT_PAREN:
         ast, err = read_list(reader)
-    case Tag.left_square:
+    case Tag.LEFT_SQUARE:
         ast, err = read_vector(reader)
     case:
         ast, err = read_atom(reader, t)
@@ -180,12 +180,12 @@ read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
 
 read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
     switch t.tag {
-    case .number:
+    case .NUMBER:
         s := reader.str[t.loc.begin:t.loc.end + 1]
         ok: bool
         atom, ok = strconv.parse_int(strings.trim(s, "\n"), 10)
         if !ok do err = .parse_int_error
-    case .symbol:
+    case .SYMBOL:
         sym := reader.str[t.loc.begin:t.loc.end + 1]
         switch sym {
         case "nil":
@@ -197,18 +197,18 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         case:
             atom = Symbol(sym)
         }
-    case .keyword:
+    case .KEYWORD:
         atom = Keyword(reader.str[t.loc.begin:t.loc.end + 1])
     case .STRING:
         if rune(reader.str[t.loc.end]) != '"' {
             return string(""), .unbalanced_quotes
         }
         atom = read_string(reader.str[t.loc.begin + 1:t.loc.end])
-    case .right_paren, .right_square, .right_curly:
+    case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
         return nil, .unbalanced_parentheses
-    case .left_paren, .left_square, .left_curly:
+    case .LEFT_PAREN, .LEFT_SQUARE, .LEFT_CURLY:
         return nil, .unbalanced_parentheses
-    case .end:
+    case .END:
         return nil, .unbalanced_parentheses
     }
     return atom, err

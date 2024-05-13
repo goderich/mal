@@ -17,19 +17,19 @@ Token :: struct {
 }
 
 Tag :: enum {
-    number,
-    symbol,
-    keyword,
+    NUMBER,
+    SYMBOL,
+    KEYWORD,
     STRING,
 
-    left_paren,
-    right_paren,
-    left_square,
-    right_square,
-    left_curly,
-    right_curly,
+    LEFT_PAREN,
+    RIGHT_PAREN,
+    LEFT_SQUARE,
+    RIGHT_SQUARE,
+    LEFT_CURLY,
+    RIGHT_CURLY,
 
-    end,
+    END,
 }
 
 Loc :: struct {
