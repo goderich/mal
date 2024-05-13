@@ -22,10 +22,6 @@ Tag :: enum {
     keyword,
     STRING,
 
-    NIL,
-    TRUE,
-    FALSE,
-
     left_paren,
     right_paren,
     left_square,

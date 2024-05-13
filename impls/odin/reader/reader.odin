@@ -27,12 +27,6 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
         t = tokenize(tokenizer, Tag.keyword)
     case '"':
         t = tokenize_string(tokenizer)
-    case 'n':
-        t = tokenize_nil(tokenizer)
-    case 't':
-        t = tokenize_true(tokenizer)
-    case 'f':
-        t = tokenize_false(tokenizer)
     case:
         t = tokenize(tokenizer, Tag.symbol)
     }
@@ -54,21 +48,13 @@ tokenizer_skip_whitespace :: proc(using tokenizer: ^Tokenizer) -> (eofp: bool) {
     return false
 }
 
-tokenizer_get_char :: proc(using tokenizer: ^Tokenizer) -> rune {
+get_char :: proc(using tokenizer: ^Tokenizer) -> rune {
     return rune(str[pos]) if pos < len(str) else EOF
 }
 
 next_char :: proc(using tokenizer: ^Tokenizer) -> rune {
     pos += 1
-    char := rune(str[pos]) if pos < len(str) else EOF
-    return char
-}
-
-tokenizer_peek :: proc(using tokenizer: ^Tokenizer) -> Token {
-    old_pos := pos
-    t := next_token(tokenizer)
-    pos = old_pos
-    return t
+    return get_char(tokenizer)
 }
 
 tokenize :: proc(using tokenizer: ^Tokenizer, tag: Tag) -> Token {
@@ -86,7 +72,7 @@ tokenize_brace :: proc(using tokenizer: ^Tokenizer) -> Token {
     loc := Loc{pos, pos}
 
     t: Token
-    switch tokenizer_get_char(tokenizer) {
+    switch get_char(tokenizer) {
     case '(':
         t = Token{ Tag.left_paren, loc}
     case ')':
@@ -133,43 +119,8 @@ tokenize_string :: proc(using tokenizer: ^Tokenizer) -> Token {
         }
     }
     end := pos
+    pos += 1
     return Token{ Tag.STRING, Loc{begin, end} }
-}
-
-tokenize_nil :: proc(using tokenizer: ^Tokenizer) -> Token {
-    begin := pos
-    if next_char(tokenizer) == 'i' &&
-        next_char(tokenizer) == 'l' &&
-        tokenizer_not_on_atom(tokenizer, 1) {
-             return Token{ Tag.NIL, Loc{ begin, pos - 1} }
-        }
-    pos = begin
-    return tokenize(tokenizer, Tag.symbol)
-}
-
-tokenize_true :: proc(using tokenizer: ^Tokenizer) -> Token {
-    begin := pos
-    if next_char(tokenizer) == 'r' &&
-        next_char(tokenizer) == 'u' &&
-        next_char(tokenizer) == 'e' &&
-        tokenizer_not_on_atom(tokenizer, 1) {
-             return Token{ Tag.TRUE, Loc{ begin, pos - 1} }
-        }
-    pos = begin
-    return tokenize(tokenizer, Tag.symbol)
-}
-
-tokenize_false :: proc(using tokenizer: ^Tokenizer) -> Token {
-    begin := pos
-    if next_char(tokenizer) == 'a' &&
-        next_char(tokenizer) == 'l' &&
-        next_char(tokenizer) == 's' &&
-        next_char(tokenizer) == 'e' &&
-        tokenizer_not_on_atom(tokenizer, 1) {
-             return Token{ Tag.FALSE, Loc{ begin, pos - 1} }
-        }
-    pos = begin
-    return tokenize(tokenizer, Tag.symbol)
 }
 
 tokenizer_not_on_atom :: proc(tokenizer: ^Tokenizer, offset := 0) -> bool {
@@ -234,14 +185,18 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         ok: bool
         atom, ok = strconv.parse_int(strings.trim(s, "\n"), 10)
         if !ok do err = .parse_int_error
-    case .NIL:
-        atom = Primitives.Nil
-    case .TRUE:
-        atom = Primitives.True
-    case .FALSE:
-        atom = Primitives.False
     case .symbol:
-        atom = Symbol(reader.str[t.loc.begin:t.loc.end + 1])
+        sym := reader.str[t.loc.begin:t.loc.end + 1]
+        switch sym {
+        case "nil":
+            atom = Primitives.Nil
+        case "true":
+            atom = Primitives.True
+        case "false":
+            atom = Primitives.False
+        case:
+            atom = Symbol(sym)
+        }
     case .keyword:
         atom = Keyword(reader.str[t.loc.begin:t.loc.end + 1])
     case .STRING:
@@ -305,9 +260,3 @@ read_string :: proc(s: string) -> string {
     }
     return strings.to_string(sb)
 }
-
-// main :: proc() {
-//     s := "(+ 1 [* 4 5 :kw] nil 3)"
-//     ast, err := read_str(s)
-//     fmt.println(ast)
-// }
