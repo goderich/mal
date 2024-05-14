@@ -198,7 +198,8 @@ tokenizer_skip_comment :: proc(tokenizer: ^Tokenizer) {
 
 read_str :: proc(str: string) -> (Ast, Error) {
     r := reader_create(str)
-    f, err := read_form(&r)
+    t := next_token(&r.tokenizer)
+    f, err := read_token(&r, t)
     return f, err
 }
 
@@ -207,8 +208,7 @@ reader_create :: proc(str: string) -> Reader {
     return Reader{tokenizer = t, ast = nil}
 }
 
-read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
-    t := next_token(&reader.tokenizer)
+read_token :: proc(reader: ^Reader, t: Token) -> (ast: Ast, err: Error) {
     #partial switch t.tag {
     case Tag.LEFT_PAREN:
         ast, err = read_list(reader)
@@ -262,28 +262,27 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
     return atom, err
 }
 
-read_list :: proc(reader: ^Reader, until: rune = ')') -> (elems: []Ast, err: Error) {
+read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: []Ast, err: Error) {
     list: [dynamic]Ast
     for {
-        eofp := tokenizer_skip_whitespace(&reader.tokenizer)
-        if eofp do return list[:], .unbalanced_parentheses
+        t := next_token(&reader.tokenizer)
 
-        using reader.tokenizer
-        switch rune(str[pos]) {
+        #partial switch t.tag {
+        case .END:
+            return list[:], .unbalanced_parentheses
         case until:
-            pos += 1
             return list[:], .none
-        case ']', ')', '}':
+        case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
             return list[:], .unbalanced_parentheses
         case:
-            f := read_form(reader) or_return
+            f := read_token(reader, t) or_return
             append(&list, f)
         }
     }
 }
 
 read_vector :: proc(reader: ^Reader) -> (v: Vector, err: Error) {
-    list := read_list(reader, ']') or_return
+    list := read_list(reader, Tag.RIGHT_SQUARE) or_return
     return Vector(list), err
 }
 
@@ -311,7 +310,8 @@ read_string :: proc(s: string) -> string {
 
 reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: []Ast, err: Error) {
     list: [dynamic]Ast
-    f := read_form(reader) or_return
+    token := next_token(&reader.tokenizer)
+    f := read_token(reader, token) or_return
     sym: string
     #partial switch t {
     case .QUOTE:
