@@ -34,6 +34,7 @@ Tag :: enum {
     QUASIQUOTE,
     UNQUOTE,
     SPLICE_UNQUOTE,
+    DEREF,
 
     END,
 }

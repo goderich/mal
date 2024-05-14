@@ -30,7 +30,7 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
         t = tokenize(tokenizer, Tag.KEYWORD)
     case '"':
         t = tokenize_string(tokenizer)
-    case '\'', '`', '~':
+    case '\'', '`', '~', '@':
         t = tokenize_quote(tokenizer)
     case:
         t = tokenize(tokenizer, Tag.SYMBOL)
@@ -143,6 +143,8 @@ tokenize_quote :: proc(using tokenizer: ^Tokenizer) -> Token {
             t = .UNQUOTE
             pos -= 1
         }
+    case '@':
+        t = .DEREF
     }
     pos += 1
     return Token{ t, Loc{ begin, pos - 1 }}
@@ -212,7 +214,7 @@ read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
         ast, err = read_list(reader)
     case Tag.LEFT_SQUARE:
         ast, err = read_vector(reader)
-    case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE:
+        case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF:
         ast, err = reader_macro(reader, t.tag)
     case:
         ast, err = read_atom(reader, t)
@@ -250,7 +252,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         return nil, .unbalanced_parentheses
     case .LEFT_PAREN, .LEFT_SQUARE, .LEFT_CURLY:
         return nil, .unbalanced_parentheses
-    case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE:
+    case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF:
         return nil, .other_error
     case .END:
         return nil, .unbalanced_parentheses
@@ -318,6 +320,8 @@ reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: []Ast, err: Error) {
         sym = "unquote"
     case .SPLICE_UNQUOTE:
         sym = "splice-unquote"
+    case .DEREF:
+        sym = "deref"
     }
     append(&list, Atom(Symbol(sym)), f)
     return list[:], err
