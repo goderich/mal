@@ -27,6 +27,8 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
         t = tokenize(tokenizer, Tag.KEYWORD)
     case '"':
         t = tokenize_string(tokenizer)
+    case '\'', '`', '~':
+        t = tokenize_quote(tokenizer)
     case:
         t = tokenize(tokenizer, Tag.SYMBOL)
     }
@@ -123,6 +125,26 @@ tokenize_string :: proc(using tokenizer: ^Tokenizer) -> Token {
     return Token{ Tag.STRING, Loc{begin, end} }
 }
 
+tokenize_quote :: proc(using tokenizer: ^Tokenizer) -> Token {
+    begin := pos
+    t: Tag
+    switch get_char(tokenizer) {
+    case '\'':
+        t = .QUOTE
+    case '`':
+        t = .QUASIQUOTE
+    case '~':
+        if next_char(tokenizer) == '@' {
+            t = .SPLICE_UNQUOTE
+        } else {
+            t = .UNQUOTE
+            pos -= 1
+        }
+    }
+    pos += 1
+    return Token{ t, Loc{ begin, pos - 1 }}
+}
+
 tokenizer_not_on_atom :: proc(tokenizer: ^Tokenizer, offset := 0) -> bool {
     tokenizer.pos += offset
     return tokenizer_on_eof(tokenizer) ||
@@ -172,6 +194,8 @@ read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
         ast, err = read_list(reader)
     case Tag.LEFT_SQUARE:
         ast, err = read_vector(reader)
+    case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE:
+        ast, err = reader_macro(reader, t.tag)
     case:
         ast, err = read_atom(reader, t)
     }
@@ -208,13 +232,15 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         return nil, .unbalanced_parentheses
     case .LEFT_PAREN, .LEFT_SQUARE, .LEFT_CURLY:
         return nil, .unbalanced_parentheses
+    case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE:
+        return nil, .other_error
     case .END:
         return nil, .unbalanced_parentheses
     }
     return atom, err
 }
 
-read_list :: proc(reader: ^Reader, until: rune = ')') -> ([]Ast, Error) {
+read_list :: proc(reader: ^Reader, until: rune = ')') -> (elems: []Ast, err: Error) {
     list: [dynamic]Ast
     for {
         eofp := tokenizer_skip_whitespace(&reader.tokenizer)
@@ -228,15 +254,14 @@ read_list :: proc(reader: ^Reader, until: rune = ')') -> ([]Ast, Error) {
         case ']', ')', '}':
             return list[:], .unbalanced_parentheses
         case:
-            f, err := read_form(reader)
-            if err != nil do return list[:], err
+            f := read_form(reader) or_return
             append(&list, f)
         }
     }
 }
 
-read_vector :: proc(reader: ^Reader) -> (Vector, Error) {
-    list, err := read_list(reader, ']')
+read_vector :: proc(reader: ^Reader) -> (v: Vector, err: Error) {
+    list := read_list(reader, ']') or_return
     return Vector(list), err
 }
 
@@ -260,4 +285,22 @@ read_string :: proc(s: string) -> string {
         }
     }
     return strings.to_string(sb)
+}
+
+reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: []Ast, err: Error) {
+    list: [dynamic]Ast
+    f := read_form(reader) or_return
+    sym: string
+    #partial switch t {
+    case .QUOTE:
+        sym = "quote"
+    case .QUASIQUOTE:
+        sym = "quasiquote"
+    case .UNQUOTE:
+        sym = "unquote"
+    case .SPLICE_UNQUOTE:
+        sym = "splice-unquote"
+    }
+    append(&list, Atom(Symbol(sym)), f)
+    return list[:], err
 }

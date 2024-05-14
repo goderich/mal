@@ -7,6 +7,7 @@ Error :: enum {
     unbalanced_parentheses,
     unbalanced_quotes,
     parse_int_error,
+    other_error,
 }
 
 ///// Tokenizer types
@@ -28,6 +29,11 @@ Tag :: enum {
     RIGHT_SQUARE,
     LEFT_CURLY,
     RIGHT_CURLY,
+
+    QUOTE,
+    QUASIQUOTE,
+    UNQUOTE,
+    SPLICE_UNQUOTE,
 
     END,
 }
