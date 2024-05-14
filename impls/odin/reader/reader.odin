@@ -172,7 +172,7 @@ tokenizer_on_brace :: proc(using tokenizer: ^Tokenizer) -> bool {
 
 tokenizer_on_whitespace :: proc(using tokenizer: ^Tokenizer) -> bool {
     switch rune(str[pos]) {
-    case ' ', ',', '\t':
+    case ' ', ',', '\t', '\n':
         return true
     }
     return false
