@@ -18,7 +18,8 @@ pr_str :: proc(ast: Ast) -> string {
         case Symbol:
             return string(a)
         case Keyword:
-            return string(a)
+            s, _ := strings.replace(string(a), "ʞ", ":", 1)
+            return string(s)
         case Primitives:
             s, ok := fmt.enum_value_to_string(a)
             return strings.to_lower(s)
