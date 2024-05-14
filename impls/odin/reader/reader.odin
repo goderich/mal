@@ -13,6 +13,9 @@ EOF :: utf8.RUNE_EOF
 
 next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     eofp := tokenizer_skip_whitespace(tokenizer)
+    if !eofp && rune(str[pos]) == ';' {
+        tokenizer_skip_comment(tokenizer)
+    }
     if eofp {
         t.tag = Tag.END
         return t
@@ -149,7 +152,8 @@ tokenizer_not_on_atom :: proc(tokenizer: ^Tokenizer, offset := 0) -> bool {
     tokenizer.pos += offset
     return tokenizer_on_eof(tokenizer) ||
            tokenizer_on_whitespace(tokenizer) ||
-           tokenizer_on_brace(tokenizer)
+           tokenizer_on_brace(tokenizer) ||
+           tokenizer_on_semicolon(tokenizer)
 }
 
 tokenizer_on_eof :: proc(using tokenizer: ^Tokenizer) -> bool {
@@ -170,6 +174,20 @@ tokenizer_on_whitespace :: proc(using tokenizer: ^Tokenizer) -> bool {
         return true
     }
     return false
+}
+
+tokenizer_on_semicolon :: proc(using tokenizer: ^Tokenizer) -> bool {
+    return rune(str[pos]) == ';'
+}
+
+tokenizer_skip_comment :: proc(tokenizer: ^Tokenizer) {
+    for {
+        switch next_char(tokenizer) {
+        case EOF, '\n':
+            return
+        }
+        continue
+    }
 }
 
 ////////////////////
