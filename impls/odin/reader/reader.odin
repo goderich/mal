@@ -267,18 +267,18 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
     return atom, err
 }
 
-read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: []Ast, err: Error) {
+read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: List, err: Error) {
     list: [dynamic]Ast
     for {
         t := next_token(&reader.tokenizer)
 
         #partial switch t.tag {
         case .END:
-            return list[:], .unbalanced_parentheses
+            return nil, .unbalanced_parentheses
         case until:
-            return list[:], .none
+            return List(list[:]), .none
         case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-            return list[:], .unbalanced_parentheses
+            return nil, .unbalanced_parentheses
         case:
             f := read_token(reader, t) or_return
             append(&list, f)
@@ -335,7 +335,7 @@ read_string :: proc(s: string) -> string {
     return strings.to_string(sb)
 }
 
-reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: []Ast, err: Error) {
+reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
     list: [dynamic]Ast
     token := next_token(&reader.tokenizer)
     f := read_token(reader, token) or_return
@@ -353,10 +353,10 @@ reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: []Ast, err: Error) {
         sym = "deref"
     }
     append(&list, Atom(Symbol(sym)), f)
-    return list[:], err
+    return List(list[:]), err
 }
 
-read_metadata :: proc(reader: ^Reader) -> (ast: []Ast, err: Error) {
+read_metadata :: proc(reader: ^Reader) -> (ast: List, err: Error) {
     list: [dynamic]Ast
     if next_token(&reader.tokenizer).tag != .LEFT_CURLY {
         return nil, .read_metadata_error
@@ -365,5 +365,5 @@ read_metadata :: proc(reader: ^Reader) -> (ast: []Ast, err: Error) {
     data := read_token(reader, next_token(&reader.tokenizer)) or_return
     sym := Atom(Symbol("with-meta"))
     append(&list, sym, data, m)
-    return list[:], err
+    return List(list[:]), err
 }

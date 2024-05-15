@@ -24,7 +24,7 @@ pr_str :: proc(ast: Ast) -> string {
             s, ok := fmt.enum_value_to_string(a)
             return strings.to_lower(s)
         }
-    case []Ast:
+    case List:
         return pr_list(t)
     case Vector:
         return pr_vector(t)
@@ -34,10 +34,10 @@ pr_str :: proc(ast: Ast) -> string {
     return ""
 }
 
-pr_list :: proc(ast: []Ast) -> string {
+pr_list :: proc(ast: List) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '(')
-    write_items(&sb, ast)
+    write_items(&sb, cast([]Ast)ast)
     strings.write_byte(&sb, ')')
     return strings.to_string(sb)
 }
@@ -45,7 +45,7 @@ pr_list :: proc(ast: []Ast) -> string {
 pr_vector :: proc(ast: Vector) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '[')
-    write_items(&sb, ([]Ast)(ast))
+    write_items(&sb, cast([]Ast)ast)
     strings.write_byte(&sb, ']')
     return strings.to_string(sb)
 }

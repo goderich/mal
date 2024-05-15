@@ -72,11 +72,12 @@ Primitives :: enum {
 
 Ast :: union {
     Atom,
-    []Ast,
+    List,
     Vector,
     map[Atom]Ast,
 }
 
+List :: distinct []Ast
 Vector :: distinct []Ast
 
 Reader :: struct {
