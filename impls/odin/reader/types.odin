@@ -7,7 +7,8 @@ Error :: enum {
     unbalanced_parentheses,
     unbalanced_quotes,
     parse_int_error,
-    other_error,
+    read_metadata_error,
+    unexpected_reader_macro,
 }
 
 ///// Tokenizer types
@@ -35,6 +36,7 @@ Tag :: enum {
     UNQUOTE,
     SPLICE_UNQUOTE,
     DEREF,
+    META,
 
     END,
 }

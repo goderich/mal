@@ -30,7 +30,7 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
         t = tokenize(tokenizer, Tag.KEYWORD)
     case '"':
         t = tokenize_string(tokenizer)
-    case '\'', '`', '~', '@':
+    case '\'', '`', '~', '@', '^':
         t = tokenize_quote(tokenizer)
     case:
         t = tokenize(tokenizer, Tag.SYMBOL)
@@ -145,6 +145,8 @@ tokenize_quote :: proc(using tokenizer: ^Tokenizer) -> Token {
         }
     case '@':
         t = .DEREF
+    case '^':
+        t = .META
     }
     pos += 1
     return Token{ t, Loc{ begin, pos - 1 }}
@@ -218,6 +220,8 @@ read_token :: proc(reader: ^Reader, t: Token) -> (ast: Ast, err: Error) {
         ast, err = read_hash_map(reader)
     case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF:
         ast, err = reader_macro(reader, t.tag)
+    case .META:
+        ast, err = read_metadata(reader)
     case:
         ast, err = read_atom(reader, t)
     }
@@ -256,8 +260,8 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         return nil, .unbalanced_parentheses
     case .LEFT_PAREN, .LEFT_SQUARE, .LEFT_CURLY:
         return nil, .unbalanced_parentheses
-    case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF:
-        return nil, .other_error
+    case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF, .META:
+        return nil, .unexpected_reader_macro
     case .END:
         return nil, .unbalanced_parentheses
     }
@@ -350,5 +354,17 @@ reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: []Ast, err: Error) {
         sym = "deref"
     }
     append(&list, Atom(Symbol(sym)), f)
+    return list[:], err
+}
+
+read_metadata :: proc(reader: ^Reader) -> (ast: []Ast, err: Error) {
+    list: [dynamic]Ast
+    if next_token(&reader.tokenizer).tag != .LEFT_CURLY {
+        return nil, .read_metadata_error
+    }
+    m := read_hash_map(reader) or_return
+    data := read_token(reader, next_token(&reader.tokenizer)) or_return
+    sym := Atom(Symbol("with-meta"))
+    append(&list, sym, data, m)
     return list[:], err
 }
