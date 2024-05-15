@@ -28,6 +28,8 @@ pr_str :: proc(ast: Ast) -> string {
         return pr_list(t)
     case Vector:
         return pr_vector(t)
+    case map[Atom]Ast:
+        return pr_hash_map(t)
     }
     return ""
 }
@@ -45,6 +47,24 @@ pr_vector :: proc(ast: Vector) -> string {
     strings.write_byte(&sb, '[')
     write_items(&sb, ([]Ast)(ast))
     strings.write_byte(&sb, ']')
+    return strings.to_string(sb)
+}
+
+pr_hash_map :: proc(m: map[Atom]Ast) -> string {
+    sb := strings.builder_make()
+    strings.write_byte(&sb, '{')
+    for k, v in m {
+        strings.write_string(&sb, pr_str(k))
+        strings.write_rune(&sb, ' ')
+        strings.write_string(&sb, pr_str(v))
+        strings.write_rune(&sb, ' ')
+    }
+    // Pop the trailing space from the Builder,
+    // but only if one exists.
+    if strings.builder_len(sb) > 1 {
+        strings.pop_rune(&sb)
+    }
+    strings.write_byte(&sb, '}')
     return strings.to_string(sb)
 }
 

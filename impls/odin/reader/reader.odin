@@ -214,7 +214,9 @@ read_token :: proc(reader: ^Reader, t: Token) -> (ast: Ast, err: Error) {
         ast, err = read_list(reader)
     case Tag.LEFT_SQUARE:
         ast, err = read_vector(reader)
-        case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF:
+    case Tag.LEFT_CURLY:
+        ast, err = read_hash_map(reader)
+    case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF:
         ast, err = reader_macro(reader, t.tag)
     case:
         ast, err = read_atom(reader, t)
@@ -284,6 +286,28 @@ read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: []Ast, e
 read_vector :: proc(reader: ^Reader) -> (v: Vector, err: Error) {
     list := read_list(reader, Tag.RIGHT_SQUARE) or_return
     return Vector(list), err
+}
+
+read_hash_map :: proc(reader: ^Reader) -> (m: map[Atom]Ast, err: Error) {
+    for {
+        t := next_token(&reader.tokenizer)
+        #partial switch t.tag {
+        case .END, .RIGHT_PAREN, .RIGHT_SQUARE:
+            return nil, .unbalanced_parentheses
+        case .RIGHT_CURLY:
+            return m, .none
+        }
+        k := read_atom(reader, t) or_return
+
+        t2 := next_token(&reader.tokenizer)
+        #partial switch t.tag {
+        case .END, .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
+            return nil, .unbalanced_parentheses
+        }
+        v := read_token(reader, t2) or_return
+
+        m[k] = v
+    }
 }
 
 read_string :: proc(s: string) -> string {

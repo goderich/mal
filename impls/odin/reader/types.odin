@@ -72,6 +72,7 @@ Ast :: union {
     Atom,
     []Ast,
     Vector,
+    map[Atom]Ast,
 }
 
 Vector :: distinct []Ast
