@@ -249,8 +249,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         }
     case .KEYWORD:
         ss := [2]string{ "ʞ", reader.str[t.loc.begin + 1:t.loc.end + 1] }
-        s := strings.concatenate(ss[:])
-        atom = Keyword(s)
+        atom = Keyword(strings.concatenate(ss[:]))
     case .STRING:
         if rune(reader.str[t.loc.end]) != '"' {
             return string(""), .unbalanced_quotes
