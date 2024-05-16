@@ -53,16 +53,15 @@ pr_vector :: proc(ast: Vector) -> string {
 pr_hash_map :: proc(m: Hash_Map) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '{')
+    i := 0
     for k, v in m {
+        if i > 0 {
+            strings.write_rune(&sb, ' ')
+        }
         strings.write_string(&sb, pr_str(k))
         strings.write_rune(&sb, ' ')
         strings.write_string(&sb, pr_str(v))
-        strings.write_rune(&sb, ' ')
-    }
-    // Pop the trailing space from the Builder,
-    // but only if one exists.
-    if strings.builder_len(sb) > 1 {
-        strings.pop_rune(&sb)
+        i += 1
     }
     strings.write_byte(&sb, '}')
     return strings.to_string(sb)

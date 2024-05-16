@@ -1,4 +1,4 @@
-package step1_read_print
+package mal
 
 import "core:fmt"
 import "core:os"
