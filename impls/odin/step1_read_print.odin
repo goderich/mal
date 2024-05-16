@@ -43,7 +43,12 @@ main :: proc() {
         }
 
         input := string(buf[:n])
-        if input == ",quit\n" do return
+        switch input {
+        case ",q\n", ",quit\n":
+            return
+        case "\n":
+            continue
+        }
 
         r, rep_err := rep(input)
         if rep_err != nil {

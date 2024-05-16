@@ -259,10 +259,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         ss := [2]string{ "ʞ", reader.str[t.loc.begin + 1:t.loc.end + 1] }
         atom = Keyword(strings.concatenate(ss[:]))
     case .STRING:
-        if rune(reader.str[t.loc.end]) != '"' {
-            return string(""), .unbalanced_quotes
-        }
-        atom = read_string(reader.str[t.loc.begin + 1:t.loc.end])
+        atom, err = read_string(reader.str[t.loc.begin:t.loc.end + 1])
     case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
         return nil, .unbalanced_parentheses
     case .LEFT_PAREN, .LEFT_SQUARE, .LEFT_CURLY:
@@ -321,18 +318,24 @@ read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, err: Error) {
     }
 }
 
-read_string :: proc(s: string) -> string {
+read_string :: proc(s: string) -> (res: string, err: Error) {
+    if len(s) < 2 || s[len(s) - 1] != '"' {
+        return "", .unbalanced_quotes
+    }
     sb := strings.builder_make()
 
-    for i := 0; i < len(s); i += 1 {
+    for i := 1; i < len(s) - 1; i += 1 {
         if rune(s[i]) == '\\' {
+            if i == len(s) - 2 {
+                return "", .unbalanced_quotes
+            }
             switch rune(s[i+1]) {
             case '\\':
                 strings.write_rune(&sb, '\\')
             case 'n':
                 strings.write_rune(&sb, '\n')
             case '"':
-                strings.write_rune(&sb, '\"')
+                strings.write_rune(&sb, '"')
             }
             i += 1
             if i >= len(s) - 1 do break
@@ -340,7 +343,7 @@ read_string :: proc(s: string) -> string {
             strings.write_rune(&sb, rune(s[i]))
         }
     }
-    return strings.to_string(sb)
+    return strings.to_string(sb), .none
 }
 
 read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
@@ -360,7 +363,7 @@ read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
     }
     f := read_form(reader) or_return
     append(&list, Atom(Symbol(sym)), f)
-    return List(list[:]), err
+    return List(list[:]), .none
 }
 
 read_metadata :: proc(reader: ^Reader) -> (ast: List, err: Error) {
@@ -372,5 +375,5 @@ read_metadata :: proc(reader: ^Reader) -> (ast: List, err: Error) {
     data := read_form(reader) or_return
     sym := Atom(Symbol("with-meta"))
     append(&list, sym, data, m)
-    return List(list[:]), err
+    return List(list[:]), .none
 }
