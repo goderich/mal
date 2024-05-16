@@ -2,6 +2,7 @@ package step1_read_print
 
 import "core:fmt"
 import "core:os"
+import "core:mem/virtual"
 
 import "reader"
 
@@ -26,6 +27,10 @@ rep :: proc(s: string) -> (p: string, err: reader.Error) {
 }
 
 main :: proc() {
+    arena: virtual.Arena
+    defer virtual.arena_destroy(&arena)
+    context.allocator = virtual.arena_allocator(&arena)
+
     buf: [256]byte
     fmt.println("Welcome to MAL-Odin 0.0.1")
 
