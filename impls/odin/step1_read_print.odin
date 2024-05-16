@@ -37,7 +37,10 @@ main :: proc() {
             return
         }
 
-        r, rep_err := rep(string(buf[:n]))
+        input := string(buf[:n])
+        if input == ",quit\n" do return
+
+        r, rep_err := rep(input)
         if rep_err != nil {
             #partial switch rep_err {
             case .unbalanced_parentheses:
