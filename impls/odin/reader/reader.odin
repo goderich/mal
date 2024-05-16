@@ -200,14 +200,18 @@ tokenizer_skip_comment :: proc(tokenizer: ^Tokenizer) {
 
 read_str :: proc(str: string) -> (Ast, Error) {
     r := reader_create(str)
-    t := next_token(&r.tokenizer)
-    f, err := read_token(&r, t)
+    f, err := read_form(&r)
     return f, err
 }
 
 reader_create :: proc(str: string) -> Reader {
     t := Tokenizer{str = str, pos = 0}
     return Reader{tokenizer = t, ast = nil}
+}
+
+read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
+    token := next_token(&reader.tokenizer)
+    return read_token(reader, token)
 }
 
 read_token :: proc(reader: ^Reader, t: Token) -> (ast: Ast, err: Error) {
@@ -226,6 +230,10 @@ read_token :: proc(reader: ^Reader, t: Token) -> (ast: Ast, err: Error) {
         ast, err = read_atom(reader, t)
     }
     return ast, err
+}
+
+is_empty_token :: proc(t: Token) -> bool {
+    return t == Token{}
 }
 
 read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
@@ -337,8 +345,6 @@ read_string :: proc(s: string) -> string {
 
 reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
     list: [dynamic]Ast
-    token := next_token(&reader.tokenizer)
-    f := read_token(reader, token) or_return
     sym: string
     #partial switch t {
     case .QUOTE:
@@ -352,6 +358,7 @@ reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
     case .DEREF:
         sym = "deref"
     }
+    f := read_form(reader) or_return
     append(&list, Atom(Symbol(sym)), f)
     return List(list[:]), err
 }
@@ -362,7 +369,7 @@ read_metadata :: proc(reader: ^Reader) -> (ast: List, err: Error) {
         return nil, .read_metadata_error
     }
     m := read_hash_map(reader) or_return
-    data := read_token(reader, next_token(&reader.tokenizer)) or_return
+    data := read_form(reader) or_return
     sym := Atom(Symbol("with-meta"))
     append(&list, sym, data, m)
     return List(list[:]), err
