@@ -74,11 +74,12 @@ Ast :: union {
     Atom,
     List,
     Vector,
-    map[Atom]Ast,
+    Hash_Map,
 }
 
 List :: distinct []Ast
 Vector :: distinct []Ast
+Hash_Map :: distinct map[Atom]Ast
 
 Reader :: struct {
     using tokenizer: Tokenizer,

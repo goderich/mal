@@ -28,7 +28,7 @@ pr_str :: proc(ast: Ast) -> string {
         return pr_list(t)
     case Vector:
         return pr_vector(t)
-    case map[Atom]Ast:
+    case Hash_Map:
         return pr_hash_map(t)
     }
     return ""
@@ -50,7 +50,7 @@ pr_vector :: proc(ast: Vector) -> string {
     return strings.to_string(sb)
 }
 
-pr_hash_map :: proc(m: map[Atom]Ast) -> string {
+pr_hash_map :: proc(m: Hash_Map) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '{')
     for k, v in m {

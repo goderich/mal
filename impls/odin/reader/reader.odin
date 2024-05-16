@@ -216,14 +216,14 @@ read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
 
 read_token :: proc(reader: ^Reader, t: Token) -> (ast: Ast, err: Error) {
     #partial switch t.tag {
-    case Tag.LEFT_PAREN:
+    case .LEFT_PAREN:
         ast, err = read_list(reader)
-    case Tag.LEFT_SQUARE:
+    case .LEFT_SQUARE:
         ast, err = read_vector(reader)
-    case Tag.LEFT_CURLY:
+    case .LEFT_CURLY:
         ast, err = read_hash_map(reader)
     case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF:
-        ast, err = reader_macro(reader, t.tag)
+        ast, err = read_reader_macro(reader, t.tag)
     case .META:
         ast, err = read_metadata(reader)
     case:
@@ -299,7 +299,7 @@ read_vector :: proc(reader: ^Reader) -> (v: Vector, err: Error) {
     return Vector(list), err
 }
 
-read_hash_map :: proc(reader: ^Reader) -> (m: map[Atom]Ast, err: Error) {
+read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, err: Error) {
     for {
         t := next_token(&reader.tokenizer)
         #partial switch t.tag {
@@ -343,7 +343,7 @@ read_string :: proc(s: string) -> string {
     return strings.to_string(sb)
 }
 
-reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
+read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
     list: [dynamic]Ast
     sym: string
     #partial switch t {
