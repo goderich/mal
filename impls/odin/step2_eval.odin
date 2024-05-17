@@ -27,21 +27,27 @@ READ :: proc(s: string) -> (Ast, reader.Error) {
     return ast, err
 }
 
-EVAL :: proc(ast: Ast, env: ^Env) -> (Ast, Eval_Error) {
-    return eval_ast(ast, env)
+EVAL :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
+    #partial switch ast in input {
+    case reader.List:
+        if len(ast) == 0 do return ast, .none
+        evaled := eval_ast(ast, env) or_return
+        list := evaled.(reader.List)
+        return apply_fn(list, env)
+    }
+
+    return eval_ast(input, env)
 }
 
 eval_ast :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
     #partial switch ast in input {
     case reader.List:
-        if len(ast) == 0 do return ast, .none
-
         list: [dynamic]Ast
         for elem in ast {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
         }
-        return apply_fn(list[:], env)
+        return reader.List(list[:]), .none
 
     case reader.Vector:
         list: [dynamic]Ast
@@ -59,10 +65,12 @@ eval_ast :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
         }
         return reader.Hash_Map(m), .none
     }
-    return input, err
+
+    return input, .none
 }
 
-apply_fn :: proc(list: []Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
+apply_fn :: proc(ast: reader.List, env: ^Env) -> (res: Ast, err: Eval_Error) {
+    list := cast([]Ast)ast
     fst := list[0].(reader.Atom)
     sym, ok := fst.(reader.Symbol)
     if !ok do return nil, .not_a_symbol
@@ -159,7 +167,7 @@ main :: proc() {
             case Reader_Error.parse_int_error:
                 fmt.println("Error: parse int error.")
             case Eval_Error.not_a_symbol:
-                fmt.println("Error: expected symbol.")
+                fmt.println("Error: the first member of a list must be a symbol.")
             case Eval_Error.not_a_function:
                 fmt.println("Error: symbol is not a function.")
             }
