@@ -5,11 +5,19 @@ import "core:os"
 import "core:mem/virtual"
 
 import "reader"
+import "types"
 
-MalType :: reader.MalType
+MalType :: types.MalType
+List :: types.List
+Vector :: types.Vector
+Symbol :: types.Symbol
+Keyword :: types.Keyword
+Hash_Map :: types.Hash_Map
+
 Reader_Error :: reader.Error
 Fn :: proc(..MalType) -> MalType
 Env :: map[reader.Symbol]Fn
+
 
 Eval_Error :: enum {
     none,
@@ -29,10 +37,10 @@ READ :: proc(s: string) -> (MalType, reader.Error) {
 
 EVAL :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
     #partial switch ast in input {
-    case reader.List:
+    case List:
         if len(ast) == 0 do return ast, .none
         evaled := eval_ast(ast, env) or_return
-        list := evaled.(reader.List)
+        list := evaled.(List)
         return apply_fn(list, env)
     }
 
@@ -41,38 +49,38 @@ EVAL :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
 
 eval_ast :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
     #partial switch ast in input {
-    case reader.List:
+    case List:
         list: [dynamic]MalType
         for elem in ast {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
         }
-        return reader.List(list[:]), .none
+        return List(list[:]), .none
 
-    case reader.Vector:
+    case Vector:
         list: [dynamic]MalType
         for elem in ast {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
         }
-        return reader.Vector(list[:]), .none
+        return Vector(list[:]), .none
 
-    case reader.Hash_Map:
+    case Hash_Map:
         m := make(map[^MalType]MalType)
         for k, v in ast {
             evaled := EVAL(v, env) or_return
             m[k] = evaled
         }
-        return reader.Hash_Map(m), .none
+        return m, .none
     }
 
     return input, .none
 }
 
-apply_fn :: proc(ast: reader.List, env: ^Env) -> (res: MalType, err: Eval_Error) {
+apply_fn :: proc(ast: List, env: ^Env) -> (res: MalType, err: Eval_Error) {
     list := cast([]MalType)ast
     fst := list[0]
-    sym, ok := fst.(reader.Symbol)
+    sym, ok := fst.(Symbol)
     if !ok do return nil, .not_a_symbol
     f, exist := env[sym]
     if !exist do return nil, .not_a_function
