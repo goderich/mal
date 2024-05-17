@@ -27,11 +27,11 @@ READ :: proc(s: string) -> (Ast, reader.Error) {
     return ast, err
 }
 
-EVAL :: proc(ast: Ast, env: Env) -> (Ast, Eval_Error) {
+EVAL :: proc(ast: Ast, env: ^Env) -> (Ast, Eval_Error) {
     return eval_ast(ast, env)
 }
 
-eval_ast :: proc(input: Ast, env: Env) -> (res: Ast, err: Eval_Error) {
+eval_ast :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
     #partial switch ast in input {
     case reader.List:
         if len(ast) == 0 do return ast, .none
@@ -62,7 +62,7 @@ eval_ast :: proc(input: Ast, env: Env) -> (res: Ast, err: Eval_Error) {
     return input, err
 }
 
-apply_fn :: proc(list: []Ast, env: Env) -> (res: Ast, err: Eval_Error) {
+apply_fn :: proc(list: []Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
     fst := list[0].(reader.Atom)
     sym, ok := fst.(reader.Symbol)
     if !ok do return nil, .not_a_symbol
@@ -120,7 +120,7 @@ PRINT :: proc(ast: Ast) -> string {
 rep :: proc(s: string) -> (p: string, err: Error) {
     r := READ(s) or_return
     env := create_env()
-    e := EVAL(r, env) or_return
+    e := EVAL(r, &env) or_return
     p = PRINT(e)
     return p, err
 }
