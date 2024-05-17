@@ -6,16 +6,16 @@ import "core:mem/virtual"
 
 import "reader"
 
-READ :: proc(s: string) -> (reader.Ast, reader.Error) {
+READ :: proc(s: string) -> (reader.MalType, reader.Error) {
     ast, err := reader.read_str(s)
     return ast, err
 }
 
-EVAL :: proc(ast: reader.Ast) -> reader.Ast {
+EVAL :: proc(ast: reader.MalType) -> reader.MalType {
     return ast
 }
 
-PRINT :: proc(ast: reader.Ast) -> string {
+PRINT :: proc(ast: reader.MalType) -> string {
     return reader.pr_str(ast)
 }
 

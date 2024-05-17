@@ -6,9 +6,9 @@ import "core:mem/virtual"
 
 import "reader"
 
-Ast :: reader.Ast
+MalType :: reader.MalType
 Reader_Error :: reader.Error
-Fn :: proc(..Ast) -> Ast
+Fn :: proc(..MalType) -> MalType
 Env :: map[reader.Symbol]Fn
 
 Eval_Error :: enum {
@@ -22,12 +22,12 @@ Error :: union {
     Eval_Error,
 }
 
-READ :: proc(s: string) -> (Ast, reader.Error) {
+READ :: proc(s: string) -> (MalType, reader.Error) {
     ast, err := reader.read_str(s)
     return ast, err
 }
 
-EVAL :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
+EVAL :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
     #partial switch ast in input {
     case reader.List:
         if len(ast) == 0 do return ast, .none
@@ -39,10 +39,10 @@ EVAL :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
     return eval_ast(input, env)
 }
 
-eval_ast :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
+eval_ast :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
     #partial switch ast in input {
     case reader.List:
-        list: [dynamic]Ast
+        list: [dynamic]MalType
         for elem in ast {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
@@ -50,7 +50,7 @@ eval_ast :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
         return reader.List(list[:]), .none
 
     case reader.Vector:
-        list: [dynamic]Ast
+        list: [dynamic]MalType
         for elem in ast {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
@@ -58,7 +58,7 @@ eval_ast :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
         return reader.Vector(list[:]), .none
 
     case reader.Hash_Map:
-        m := make(map[reader.Atom]Ast)
+        m := make(map[^MalType]MalType)
         for k, v in ast {
             evaled := EVAL(v, env) or_return
             m[k] = evaled
@@ -69,9 +69,9 @@ eval_ast :: proc(input: Ast, env: ^Env) -> (res: Ast, err: Eval_Error) {
     return input, .none
 }
 
-apply_fn :: proc(ast: reader.List, env: ^Env) -> (res: Ast, err: Eval_Error) {
-    list := cast([]Ast)ast
-    fst := list[0].(reader.Atom)
+apply_fn :: proc(ast: reader.List, env: ^Env) -> (res: MalType, err: Eval_Error) {
+    list := cast([]MalType)ast
+    fst := list[0]
     sym, ok := fst.(reader.Symbol)
     if !ok do return nil, .not_a_symbol
     f, exist := env[sym]
@@ -80,48 +80,48 @@ apply_fn :: proc(ast: reader.List, env: ^Env) -> (res: Ast, err: Eval_Error) {
 }
 
 create_env :: proc() -> (env: Env) {
-    env["+"] = proc(xs: ..Ast) -> Ast {
+    env["+"] = proc(xs: ..MalType) -> MalType {
         acc := 0
         for x in xs {
-            n := x.(reader.Atom).(int)
+            n := x.(int)
             acc += n
         }
-        return reader.Atom(acc)
+        return acc
     }
 
-    env["*"] = proc(xs: ..Ast) -> Ast {
+    env["*"] = proc(xs: ..MalType) -> MalType {
         acc := 1
         for x in xs {
-            n := x.(reader.Atom).(int)
+            n := x.(int)
             acc *= n
         }
-        return reader.Atom(acc)
+        return acc
     }
 
-    env["-"] = proc(xs: ..Ast) -> Ast {
-        acc := xs[0].(reader.Atom).(int)
+    env["-"] = proc(xs: ..MalType) -> MalType {
+        acc := xs[0].(int)
         rest := xs[1:]
         for x in rest {
-            n := x.(reader.Atom).(int)
+            n := x.(int)
             acc -= n
         }
-        return reader.Atom(acc)
+        return acc
     }
 
-    env["/"] = proc(xs: ..Ast) -> Ast {
-        acc := xs[0].(reader.Atom).(int)
+    env["/"] = proc(xs: ..MalType) -> MalType {
+        acc := xs[0].(int)
         rest := xs[1:]
         for x in rest {
-            n := x.(reader.Atom).(int)
+            n := x.(int)
             acc /= n
         }
-        return reader.Atom(acc)
+        return acc
     }
 
     return env
 }
 
-PRINT :: proc(ast: Ast) -> string {
+PRINT :: proc(ast: MalType) -> string {
     return reader.pr_str(ast)
 }
 

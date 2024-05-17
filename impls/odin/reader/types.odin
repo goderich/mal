@@ -9,6 +9,7 @@ Error :: enum {
     parse_int_error,
     read_metadata_error,
     unexpected_reader_macro,
+    invalid_map_key,
 }
 
 ///// Tokenizer types
@@ -53,35 +54,29 @@ Tokenizer :: struct {
 
 ///// Reader types
 
-Atom :: union {
+MalType :: union {
     int,
     string,
+    bool,
+    Nil,
     Symbol,
     Keyword,
-    Primitives,
-}
 
-Symbol :: distinct string
-Keyword :: distinct string
-
-Primitives :: enum {
-    True,
-    False,
-    Nil,
-}
-
-Ast :: union {
-    Atom,
     List,
     Vector,
     Hash_Map,
 }
 
-List :: distinct []Ast
-Vector :: distinct []Ast
-Hash_Map :: distinct map[Atom]Ast
+Symbol :: distinct string
+Keyword :: distinct string
+Nil :: struct {}
+
+List :: distinct []MalType
+Vector :: distinct []MalType
+// Odin does not allow MalType to be a key, but a pointer to it works.
+Hash_Map :: map[^MalType]MalType
 
 Reader :: struct {
     using tokenizer: Tokenizer,
-    ast: Ast,
+    ast: MalType,
 }

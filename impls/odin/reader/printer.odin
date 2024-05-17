@@ -3,26 +3,28 @@ package reader
 import "core:fmt"
 import "core:strings"
 
-pr_str :: proc(ast: Ast) -> string {
+pr_str :: proc(ast: MalType) -> string {
     switch t in ast {
-    case Atom:
-        switch a in t {
-        case int:
-            sb := strings.builder_make()
-            strings.write_int(&sb, a)
-            return strings.to_string(sb)
-        case string:
-            sb := strings.builder_make()
-            strings.write_quoted_string(&sb, a)
-            return strings.to_string(sb)
-        case Symbol:
-            return string(a)
-        case Keyword:
-            s, _ := strings.replace(string(a), "ʞ", ":", 1)
-            return string(s)
-        case Primitives:
-            s, ok := fmt.enum_value_to_string(a)
-            return strings.to_lower(s)
+    case int:
+        sb := strings.builder_make()
+        strings.write_int(&sb, t)
+        return strings.to_string(sb)
+    case string:
+        sb := strings.builder_make()
+        strings.write_quoted_string(&sb, t)
+        return strings.to_string(sb)
+    case Symbol:
+        return string(t)
+    case Keyword:
+        s, _ := strings.replace(string(t), "ʞ", ":", 1)
+        return string(s)
+    case Nil:
+        return "nil"
+    case bool:
+        if t {
+            return "true"
+        } else {
+            return "false"
         }
     case List:
         return pr_list(t)
@@ -37,7 +39,7 @@ pr_str :: proc(ast: Ast) -> string {
 pr_list :: proc(ast: List) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '(')
-    write_items(&sb, cast([]Ast)ast)
+    write_items(&sb, cast([]MalType)ast)
     strings.write_byte(&sb, ')')
     return strings.to_string(sb)
 }
@@ -45,7 +47,7 @@ pr_list :: proc(ast: List) -> string {
 pr_vector :: proc(ast: Vector) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '[')
-    write_items(&sb, cast([]Ast)ast)
+    write_items(&sb, cast([]MalType)ast)
     strings.write_byte(&sb, ']')
     return strings.to_string(sb)
 }
@@ -58,7 +60,7 @@ pr_hash_map :: proc(m: Hash_Map) -> string {
         if i > 0 {
             strings.write_rune(&sb, ' ')
         }
-        strings.write_string(&sb, pr_str(k))
+        strings.write_string(&sb, pr_str(k^))
         strings.write_rune(&sb, ' ')
         strings.write_string(&sb, pr_str(v))
         i += 1
@@ -67,7 +69,7 @@ pr_hash_map :: proc(m: Hash_Map) -> string {
     return strings.to_string(sb)
 }
 
-write_items :: proc(sb: ^strings.Builder, items: []Ast) {
+write_items :: proc(sb: ^strings.Builder, items: []MalType) {
     for elem, i in items {
         strings.write_string(sb, pr_str(elem))
         if i < len(items) - 1 {

@@ -212,7 +212,7 @@ tokenizer_skip_comment :: proc(tokenizer: ^Tokenizer) {
 // READER
 ////////////////////
 
-read_str :: proc(str: string) -> (Ast, Error) {
+read_str :: proc(str: string) -> (MalType, Error) {
     r := reader_create(str)
     f, err := read_form(&r)
     return f, err
@@ -223,12 +223,12 @@ reader_create :: proc(str: string) -> Reader {
     return Reader{tokenizer = t, ast = nil}
 }
 
-read_form :: proc(reader: ^Reader) -> (ast: Ast, err: Error) {
+read_form :: proc(reader: ^Reader) -> (ast: MalType, err: Error) {
     token := next_token(&reader.tokenizer)
     return read_token(reader, token)
 }
 
-read_token :: proc(reader: ^Reader, t: Token) -> (ast: Ast, err: Error) {
+read_token :: proc(reader: ^Reader, t: Token) -> (ast: MalType, err: Error) {
     #partial switch t.tag {
     case .LEFT_PAREN:
         ast, err = read_list(reader)
@@ -250,7 +250,7 @@ is_empty_token :: proc(t: Token) -> bool {
     return t == Token{}
 }
 
-read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
+read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, err: Error) {
     switch t.tag {
     case .NUMBER:
         s := reader.str[t.loc.begin:t.loc.end + 1]
@@ -261,11 +261,11 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
         sym := reader.str[t.loc.begin:t.loc.end + 1]
         switch sym {
         case "nil":
-            atom = Primitives.Nil
+            atom = Nil{}
         case "true":
-            atom = Primitives.True
+            atom = true
         case "false":
-            atom = Primitives.False
+            atom = false
         case:
             atom = Symbol(sym)
         }
@@ -287,7 +287,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
 }
 
 read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: List, err: Error) {
-    list: [dynamic]Ast
+    list: [dynamic]MalType
     for {
         t := next_token(&reader.tokenizer)
 
@@ -319,7 +319,10 @@ read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, err: Error) {
         case .RIGHT_CURLY:
             return m, .none
         }
-        k := read_atom(reader, t) or_return
+        // Because keys are pointers, they have to be
+        // allocated on the heap.
+        k := new(MalType)
+        k^ = read_atom(reader, t) or_return
 
         t2 := next_token(&reader.tokenizer)
         #partial switch t.tag {
@@ -361,7 +364,7 @@ read_string :: proc(s: string) -> (res: string, err: Error) {
 }
 
 read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
-    list: [dynamic]Ast
+    list: [dynamic]MalType
     sym: string
     #partial switch t {
     case .QUOTE:
@@ -376,18 +379,18 @@ read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
         sym = "deref"
     }
     f := read_form(reader) or_return
-    append(&list, Atom(Symbol(sym)), f)
+    append(&list, Symbol(sym), f)
     return List(list[:]), .none
 }
 
 read_metadata :: proc(reader: ^Reader) -> (ast: List, err: Error) {
-    list: [dynamic]Ast
+    list: [dynamic]MalType
     if next_token(&reader.tokenizer).tag != .LEFT_CURLY {
         return nil, .read_metadata_error
     }
     m := read_hash_map(reader) or_return
     data := read_form(reader) or_return
-    sym := Atom(Symbol("with-meta"))
+    sym := Symbol("with-meta")
     append(&list, sym, data, m)
     return List(list[:]), .none
 }
