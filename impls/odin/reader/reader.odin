@@ -26,6 +26,8 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
         t = tokenize_brace(tokenizer)
     case '0'..='9':
         t = tokenize(tokenizer, Tag.NUMBER)
+    case '-':
+        t = tokenize_minus(tokenizer)
     case ':':
         t = tokenize(tokenizer, Tag.KEYWORD)
     case '"':
@@ -39,7 +41,6 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
 }
 
 tokenizer_skip_whitespace :: proc(using tokenizer: ^Tokenizer) -> (eofp: bool) {
-    t: Token
     for {
         if pos >= len(str) {
             return true
@@ -73,10 +74,9 @@ tokenize :: proc(using tokenizer: ^Tokenizer, tag: Tag) -> Token {
     return Token{ tag, Loc{ begin, end } }
 }
 
-tokenize_brace :: proc(using tokenizer: ^Tokenizer) -> Token {
+tokenize_brace :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     loc := Loc{pos, pos}
 
-    t: Token
     switch get_char(tokenizer) {
     case '(':
         t = Token{ Tag.LEFT_PAREN, loc}
@@ -92,6 +92,20 @@ tokenize_brace :: proc(using tokenizer: ^Tokenizer) -> Token {
         t = Token{ Tag.RIGHT_CURLY, loc}
     }
     pos += 1
+    return t
+}
+
+// A minus could begin a negative number or a symbol.
+// Look ahead to the next character to decide how to tokenize it.
+tokenize_minus :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
+    snd := next_char(tokenizer)
+    pos -= 1
+    switch snd {
+    case '0'..='9':
+        t = tokenize(tokenizer, Tag.NUMBER)
+    case:
+        t = tokenize(tokenizer, Tag.SYMBOL)
+    }
     return t
 }
 
@@ -130,26 +144,26 @@ tokenize_string :: proc(using tokenizer: ^Tokenizer) -> Token {
 
 tokenize_quote :: proc(using tokenizer: ^Tokenizer) -> Token {
     begin := pos
-    t: Tag
+    tag: Tag
     switch get_char(tokenizer) {
     case '\'':
-        t = .QUOTE
+        tag = .QUOTE
     case '`':
-        t = .QUASIQUOTE
+        tag = .QUASIQUOTE
     case '~':
         if next_char(tokenizer) == '@' {
-            t = .SPLICE_UNQUOTE
+            tag = .SPLICE_UNQUOTE
         } else {
-            t = .UNQUOTE
+            tag = .UNQUOTE
             pos -= 1
         }
     case '@':
-        t = .DEREF
+        tag = .DEREF
     case '^':
-        t = .META
+        tag = .META
     }
     pos += 1
-    return Token{ t, Loc{ begin, pos - 1 }}
+    return Token{ tag, Loc{ begin, pos - 1 }}
 }
 
 tokenizer_not_on_atom :: proc(tokenizer: ^Tokenizer, offset := 0) -> bool {
@@ -241,7 +255,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: Atom, err: Error) {
     case .NUMBER:
         s := reader.str[t.loc.begin:t.loc.end + 1]
         ok: bool
-        atom, ok = strconv.parse_int(strings.trim(s, "\n"), 10)
+        atom, ok = strconv.parse_int(s, 10)
         if !ok do err = .parse_int_error
     case .SYMBOL:
         sym := reader.str[t.loc.begin:t.loc.end + 1]
