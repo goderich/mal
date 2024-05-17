@@ -7,16 +7,18 @@ import "core:mem/virtual"
 import "reader"
 
 Ast :: reader.Ast
+Reader_Error :: reader.Error
 Fn :: proc(..Ast) -> Ast
 Env :: map[reader.Symbol]Fn
 
 Eval_Error :: enum {
     none,
+    not_a_symbol,
     not_a_function,
 }
 
 Error :: union {
-    reader.Error,
+    Reader_Error,
     Eval_Error,
 }
 
@@ -45,8 +47,11 @@ eval_ast :: proc(input: Ast, env: Env) -> (res: Ast, err: Eval_Error) {
 }
 
 apply_fn :: proc(list: []Ast, env: Env) -> (res: Ast, err: Eval_Error) {
-    fst := list[0].(reader.Atom).(reader.Symbol)
-    f := env[fst]
+    fst := list[0].(reader.Atom)
+    sym, ok := fst.(reader.Symbol)
+    if !ok do return nil, .not_a_symbol
+    f, exist := env[sym]
+    if !exist do return nil, .not_a_function
     return f(..list[1:]), err
 }
 
@@ -101,12 +106,16 @@ main :: proc() {
         r, rep_err := rep(input)
         if rep_err != nil {
             switch rep_err {
-            case .unbalanced_parentheses:
+            case Reader_Error.unbalanced_parentheses:
                 fmt.println("Error: unbalanced parentheses.")
-            case .unbalanced_quotes:
+            case Reader_Error.unbalanced_quotes:
                 fmt.println("Error: unbalanced quotes.")
-            case .parse_int_error:
+            case Reader_Error.parse_int_error:
                 fmt.println("Error: parse int error.")
+            case Eval_Error.not_a_symbol:
+                fmt.println("Error: expected symbol.")
+            case Eval_Error.not_a_function:
+                fmt.println("Error: symbol is not a function.")
             }
         } else {
             fmt.println(r)
