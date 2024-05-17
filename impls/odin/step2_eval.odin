@@ -64,6 +64,36 @@ create_env :: proc() -> (env: Env) {
         }
         return reader.Atom(acc)
     }
+
+    env["*"] = proc(xs: ..Ast) -> Ast {
+        acc := 1
+        for x in xs {
+            n := x.(reader.Atom).(int)
+            acc *= n
+        }
+        return reader.Atom(acc)
+    }
+
+    env["-"] = proc(xs: ..Ast) -> Ast {
+        acc := xs[0].(reader.Atom).(int)
+        rest := xs[1:]
+        for x in rest {
+            n := x.(reader.Atom).(int)
+            acc -= n
+        }
+        return reader.Atom(acc)
+    }
+
+    env["/"] = proc(xs: ..Ast) -> Ast {
+        acc := xs[0].(reader.Atom).(int)
+        rest := xs[1:]
+        for x in rest {
+            n := x.(reader.Atom).(int)
+            acc /= n
+        }
+        return reader.Atom(acc)
+    }
+
     return env
 }
 
