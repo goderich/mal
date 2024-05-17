@@ -32,16 +32,32 @@ EVAL :: proc(ast: Ast, env: Env) -> (Ast, Eval_Error) {
 }
 
 eval_ast :: proc(input: Ast, env: Env) -> (res: Ast, err: Eval_Error) {
-    #partial switch v in input {
+    #partial switch ast in input {
     case reader.List:
-        if len(v) == 0 do return v, .none
+        if len(ast) == 0 do return ast, .none
 
         list: [dynamic]Ast
-        for elem in v {
+        for elem in ast {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
         }
         return apply_fn(list[:], env)
+
+    case reader.Vector:
+        list: [dynamic]Ast
+        for elem in ast {
+            evaled := EVAL(elem, env) or_return
+            append(&list, evaled)
+        }
+        return reader.Vector(list[:]), .none
+
+    case reader.Hash_Map:
+        m := make(map[reader.Atom]Ast)
+        for k, v in ast {
+            evaled := EVAL(v, env) or_return
+            m[k] = evaled
+        }
+        return reader.Hash_Map(m), .none
     }
     return input, err
 }
