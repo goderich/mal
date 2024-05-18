@@ -61,7 +61,8 @@ EVAL :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Error) 
             return eval_def(ast, repl_env)
         case "let*":
             return eval_let(ast, repl_env)
-        // case "do":
+        case "do":
+            return eval_do(ast, repl_env)
         case "if":
             return eval_if(ast, repl_env)
         // case "fn*":
@@ -186,6 +187,13 @@ eval_if :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
         }
     }
     return EVAL(ast[2], repl_env)
+}
+
+eval_do :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+    for i in 1..<len(ast) {
+        res = EVAL(ast[i], repl_env) or_return
+    }
+    return res, .none
 }
 
 apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
