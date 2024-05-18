@@ -34,6 +34,8 @@ pr_str :: proc(ast: MalType) -> string {
         return pr_hash_map(t)
     case Fn:
         return "#<function>"
+    case Closure:
+        return "#<closure>"
     }
     return ""
 }

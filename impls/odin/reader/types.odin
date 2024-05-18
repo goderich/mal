@@ -70,3 +70,4 @@ Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Nil :: types.Nil
 Fn :: types.Fn
+Closure :: types.Closure

@@ -17,6 +17,7 @@ Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Fn :: types.Fn
+Closure :: types.Closure
 
 Env :: env.Env
 
@@ -50,10 +51,8 @@ EVAL :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Error) 
         if len(ast) == 0 do return ast, .none
 
         fst, ok := ast[0].(Symbol)
-        if !ok {
-            fmt.println("Error: the first member of a list must be a symbol.")
-            return nil, .not_a_symbol
-        }
+        // TODO: handle properly!!
+        // if !ok do break
 
         // Special forms:
         switch fst {
@@ -65,15 +64,16 @@ EVAL :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Error) 
             return eval_do(ast, repl_env)
         case "if":
             return eval_if(ast, repl_env)
-        // case "fn*":
+        case "fn*":
+            fn, err := eval_fn(ast, repl_env)
+            return fn, err
         }
 
         // Normal function evaluation
         evaled := eval_ast(ast, repl_env) or_return
         list := evaled.(List)
         res, err = apply_fn(list, repl_env)
-        #partial switch err {
-        case .not_a_function:
+        if err == .not_a_function {
             fmt.printfln("Error: '%s' is not a function.", ast[0])
         }
         return res, err
@@ -179,9 +179,9 @@ eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
 eval_if :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     cond := EVAL(ast[1], repl_env) or_return
     #partial switch t in cond {
-        case Nil:
+    case Nil:
         return EVAL(ast[3], repl_env)
-        case bool:
+    case bool:
         if !t {
             return EVAL(ast[3], repl_env)
         }
@@ -196,17 +196,33 @@ eval_do :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     return res, .none
 }
 
+eval_fn :: proc(ast: List, repl_env: ^Env) -> (fn: Closure, err: Eval_Error) {
+    // capture args
+    #partial switch args in ast[1] {
+    case List:
+        for arg in args {
+            append(&fn.binds, arg.(Symbol))
+        }
+    case:
+        fmt.println("Error: the second member of a fn* expression must be a list.")
+    }
+    // capture body
+    fn.body = &ast[2]
+    return fn, .none
+}
+
 apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     list := cast([]MalType)ast
 
     // Extract function
     fst := list[0]
     f, ok := fst.(Fn)
-    if !ok do return nil, .not_a_function
+    if !ok do return apply_closure(ast, repl_env)
 
     // Extract arguments.
     // These have to be pointers (see types/types.odin)
     ptrs: [dynamic]^MalType
+    defer delete(ptrs)
     for elem in list[1:] {
         p := new_clone(elem)
         append(&ptrs, p)
@@ -214,6 +230,22 @@ apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
 
     // Apply function and return the result.
     return f(..ptrs[:]), .none
+}
+
+apply_closure :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+    list := cast([]MalType)ast
+    fst := list[0]
+    f, ok := fst.(Closure)
+    if !ok do return nil, .not_a_function
+
+    fn_env: Env
+    fn_env.outer = repl_env
+
+    for i in 0..<len(f.binds) {
+        env.env_set(&fn_env, f.binds[i], list[i+1])
+    }
+
+    return EVAL(f.body^, &fn_env)
 }
 
 create_env :: proc() -> (repl_env: Env) {
@@ -281,7 +313,7 @@ main :: proc() {
     context.allocator = virtual.arena_allocator(&arena)
 
     buf: [256]byte
-    fmt.println("Welcome to MAL-Odin 0.0.3")
+    fmt.println("Welcome to MAL-Odin 0.0.4")
 
     for {
         fmt.print("user> ")
