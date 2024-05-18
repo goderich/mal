@@ -15,6 +15,13 @@ Env :: struct {
     data: map[Symbol]MalType,
 }
 
+env_new :: proc(binds: []Symbol, exprs: []MalType) -> (env: Env) {
+    for i in 0..<len(binds) {
+        env_set(&env, binds[i], exprs[i])
+    }
+    return env
+}
+
 env_set :: proc(env: ^Env, key: Symbol, val: MalType) {
     env.data[key] = val
 }
