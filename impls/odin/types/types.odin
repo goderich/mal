@@ -11,6 +11,8 @@ MalType :: union {
     List,
     Vector,
     Hash_Map,
+
+    Fn,
 }
 
 Symbol :: distinct string
@@ -21,3 +23,7 @@ List :: distinct []MalType
 Vector :: distinct []MalType
 // Odin does not allow MalType to be a key, but a pointer to it works.
 Hash_Map :: map[^MalType]MalType
+
+// A similar thing happens with functions,
+// but I'm not sure why a pointer is needed here.
+Fn :: proc(..^MalType) -> MalType
