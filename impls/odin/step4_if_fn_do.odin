@@ -280,6 +280,8 @@ main :: proc() {
 
     buf: [256]byte
     fmt.println("Welcome to MAL-Odin 0.0.4")
+    // Define `not` using MAL
+    rep("(def! not (fn* (a) (if a false true)))")
 
     for {
         fmt.print("user> ")
