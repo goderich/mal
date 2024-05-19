@@ -215,13 +215,11 @@ eval_fn :: proc(ast: List, repl_env: ^Env) -> (fn: Closure, err: Eval_Error) {
     return fn, .none
 }
 
-apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
-    list := cast([]MalType)ast
-
+apply_fn :: proc(list: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     // Extract function
     fst := list[0]
     f, ok := fst.(Fn)
-    if !ok do return apply_closure(ast, repl_env)
+    if !ok do return apply_closure(list, repl_env)
 
     // Extract arguments.
     // These have to be pointers (see types/types.odin)
@@ -236,8 +234,7 @@ apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     return f(..ptrs[:]), .none
 }
 
-apply_closure :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
-    list := cast([]MalType)ast
+apply_closure :: proc(list: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     fst := list[0]
     f, ok := fst.(Closure)
     if !ok do return nil, .not_a_function
@@ -246,6 +243,14 @@ apply_closure :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Err
     fn_env.outer = repl_env
 
     for i in 0..<len(f.binds) {
+        // "Rest" args with '&'
+        if f.binds[i] == "&" {
+            rest_bind := f.binds[i+1]
+            rest_args := List(list[i+1:])
+            env.env_set(&fn_env, rest_bind, rest_args)
+            break
+        }
+        // Regular args
         env.env_set(&fn_env, f.binds[i], list[i+1])
     }
 
