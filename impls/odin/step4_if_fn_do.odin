@@ -8,6 +8,7 @@ import "core:strings"
 import "types"
 import "reader"
 import "env"
+import "core"
 
 MalType :: types.MalType
 Nil :: types.Nil
@@ -178,12 +179,15 @@ eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
 
 eval_if :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     cond := EVAL(ast[1], repl_env) or_return
+    // If third element is missing, it defaults to nil
+    third:= ast[3] if len(ast) == 4 else MalType(Nil{})
+
     #partial switch t in cond {
     case Nil:
-        return EVAL(ast[3], repl_env)
+        return EVAL(third, repl_env)
     case bool:
         if !t {
-            return EVAL(ast[3], repl_env)
+            return EVAL(third, repl_env)
         }
     }
     return EVAL(ast[2], repl_env)
@@ -251,47 +255,9 @@ apply_closure :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Err
 create_env :: proc() -> (repl_env: Env) {
     using env
 
-    add := proc(xs: ..^MalType) -> MalType {
-        acc := 0
-        for x in xs {
-            n := x^.(int)
-            acc += n
-        }
-        return acc
+    for name, fn in core.make_ns() {
+        env_set(&repl_env, name, Fn(fn))
     }
-    env_set(&repl_env, "+", Fn(add))
-
-    multiply := proc(xs: ..^MalType) -> MalType {
-        acc := 1
-        for x in xs {
-            n := x^.(int)
-            acc *= n
-        }
-        return acc
-    }
-    env_set(&repl_env, "*", Fn(multiply))
-
-    subtract := proc(xs: ..^MalType) -> MalType {
-        acc := xs[0].(int)
-        rest := xs[1:]
-        for x in rest {
-            n := x^.(int)
-            acc -= n
-        }
-        return acc
-    }
-    env_set(&repl_env, "-", Fn(subtract))
-
-    divide := proc(xs: ..^MalType) -> MalType {
-        acc := xs[0].(int)
-        rest := xs[1:]
-        for x in rest {
-            n := x^.(int)
-            acc /= n
-        }
-        return acc
-    }
-    env_set(&repl_env, "/", Fn(divide))
 
     return repl_env
 }
