@@ -136,17 +136,6 @@ eval_def :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     return s, .none
 }
 
-// Create a new Symbol in memory and copy contents to it.
-// Provides protection from overwriting.
-// This is important because variable names defined in the REPL
-// are not independent strings/Symbols, but instead
-// slices of the input string (in other words, a pointer and a length),
-// which get overwritten if a new input is long enough.
-// Pointers, mang.
-clone_symbol :: proc(s: Symbol) -> Symbol {
-    return Symbol(strings.clone(string(s)))
-}
-
 eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     let_env: Env
     let_env.outer = repl_env

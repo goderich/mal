@@ -118,8 +118,6 @@ eval_ast :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Err
 
 eval_def :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     sym := ast[1].(Symbol)
-    // Make a permanent copy of the symbol (see clone_symbol)
-    sym = clone_symbol(sym)
     // Evaluate the expression to get symbol value
     val := EVAL(ast[2], repl_env) or_return
     // Set environment variable
@@ -127,17 +125,6 @@ eval_def :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     // Retrieve variable
     s, ok := env.env_get(repl_env, sym)
     return s, .none
-}
-
-// Create a new Symbol in memory and copy contents to it.
-// Provides protection from overwriting.
-// This is important because variable names defined in the REPL
-// are not independent strings/Symbols, but instead
-// slices of the input string (in other words, a pointer and a length),
-// which get overwritten if a new input is long enough.
-// Pointers, mang.
-clone_symbol :: proc(s: Symbol) -> Symbol {
-    return Symbol(strings.clone(string(s)))
 }
 
 eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {

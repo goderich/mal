@@ -258,8 +258,8 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, err: Error) {
         atom, ok = strconv.parse_int(s, 10)
         if !ok do err = .parse_int_error
     case .SYMBOL:
-        sym := reader.str[t.loc.begin:t.loc.end + 1]
-        switch sym {
+        str := strings.clone(string(reader.str[t.loc.begin:t.loc.end + 1]))
+        switch str {
         case "nil":
             atom = Nil{}
         case "true":
@@ -267,11 +267,15 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, err: Error) {
         case "false":
             atom = false
         case:
-            atom = Symbol(sym)
+            atom = Symbol(str)
         }
     case .KEYWORD:
-        ss := [2]string{ "ʞ", reader.str[t.loc.begin + 1:t.loc.end + 1] }
-        atom = Keyword(strings.concatenate(ss[:]))
+        str_clone := strings.clone(
+            string(reader.str[t.loc.begin + 1:t.loc.end + 1]),
+            allocator = context.temp_allocator
+        )
+        strs := [2]string{ "ʞ", str_clone }
+        atom = Keyword(strings.concatenate(strs[:]))
     case .STRING:
         atom, err = read_string(reader.str[t.loc.begin:t.loc.end + 1])
     case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
