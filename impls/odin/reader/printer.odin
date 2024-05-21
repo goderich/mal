@@ -35,6 +35,10 @@ pr_str :: proc(ast: MalType) -> string {
     case Fn:
         return "#<function>"
     case Closure:
+        fmt.println("args:", t.args)
+        fmt.println("body:", pr_str(t.body^))
+        fmt.println("env data:", t.env.data)
+        // fmt.println("env out ptr:", t.env.outer)
         return "#<closure>"
     }
     return ""

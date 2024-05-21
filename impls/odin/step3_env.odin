@@ -7,7 +7,6 @@ import "core:strings"
 
 import "types"
 import "reader"
-import "env"
 
 MalType :: types.MalType
 List :: types.List
@@ -17,7 +16,7 @@ Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Fn :: types.Fn
 
-Env :: env.Env
+Env :: types.Env
 
 Reader_Error :: reader.Error
 
@@ -104,7 +103,7 @@ eval_ast :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Err
         return m, .none
 
     case Symbol:
-        val, ok := env.env_get(repl_env, ast)
+        val, ok := types.env_get(repl_env, ast)
         if ok {
             return val, .none
         } else {
@@ -121,9 +120,9 @@ eval_def :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     // Evaluate the expression to get symbol value
     val := EVAL(ast[2], repl_env) or_return
     // Set environment variable
-    env.env_set(repl_env, sym, val)
+    types.env_set(repl_env, sym, val)
     // Retrieve variable
-    s, ok := env.env_get(repl_env, sym)
+    s, ok := types.env_get(repl_env, sym)
     return s, .none
 }
 
@@ -151,7 +150,7 @@ eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     for i := 0; i < len(bindings); i += 2 {
         name := bindings[i].(Symbol)
         val := EVAL(bindings[i+1], &let_env) or_return
-        env.env_set(&let_env, name, val)
+        types.env_set(&let_env, name, val)
     }
     // Evaluate final expression
     return EVAL(ast[2], &let_env)
@@ -178,7 +177,7 @@ apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
 }
 
 create_env :: proc() -> (repl_env: Env) {
-    using env
+    using types
 
     add := proc(xs: ..^MalType) -> MalType {
         acc := 0

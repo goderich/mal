@@ -7,7 +7,6 @@ import "core:strings"
 
 import "types"
 import "reader"
-import "env"
 import "core"
 
 MalType :: types.MalType
@@ -20,7 +19,7 @@ Hash_Map :: types.Hash_Map
 Fn :: types.Fn
 Closure :: types.Closure
 
-Env :: env.Env
+Env :: types.Env
 
 Reader_Error :: reader.Error
 
@@ -46,7 +45,7 @@ READ :: proc(s: string) -> (MalType, reader.Error) {
 }
 
 // Special forms and function application
-EVAL :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
     #partial switch ast in input {
     case List:
         if len(ast) == 0 do return ast, .none
@@ -55,41 +54,54 @@ EVAL :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Error) 
         // TODO: handle properly!!
         // if !ok do break
 
+        // fmt.println("EVAL:", ast)
+        // prn_env(outer_env)
+
         // Special forms:
         switch fst {
         case "def!":
-            return eval_def(ast, repl_env)
+            // res, err = eval_def(ast, outer_env)
+                // cl, ok := res.(Closure)
+                // fmt.println("env after def!:")
+                // prn_env(&cl.env)
+            // return res, err
+            return eval_def(ast, outer_env)
         case "let*":
-            return eval_let(ast, repl_env)
+            return eval_let(ast, outer_env)
         case "do":
-            return eval_do(ast, repl_env)
+            return eval_do(ast, outer_env)
         case "if":
-            return eval_if(ast, repl_env)
+            return eval_if(ast, outer_env)
         case "fn*":
-            fn, err := eval_fn(ast, repl_env)
+            fn, err := eval_fn(ast, outer_env)
+            fmt.println("fn* env address:", &fn.env)
+            prn_env(&fn.env)
             return fn, err
+            // return eval_fn(ast, outer_env)
         }
 
         // Normal function evaluation
-        evaled := eval_ast(ast, repl_env) or_return
+        evaled := eval_ast(ast, outer_env) or_return
         list := evaled.(List)
-        res, err = apply_fn(list, repl_env)
+            // fmt.printfln("Evaled list:", list)
+            // prn_env(outer_env)
+        res, err = apply_fn(list)
         if err == .not_a_function {
             fmt.printfln("Error: '%s' is not a function.", ast[0])
         }
         return res, err
     }
 
-    return eval_ast(input, repl_env)
+    return eval_ast(input, outer_env)
 }
 
 // Evaluation of symbols and data structures
-eval_ast :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
     #partial switch ast in input {
     case List:
         list: [dynamic]MalType
         for elem in ast {
-            evaled := EVAL(elem, repl_env) or_return
+            evaled := EVAL(elem, outer_env) or_return
             append(&list, evaled)
         }
         return List(list[:]), .none
@@ -97,7 +109,7 @@ eval_ast :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Err
     case Vector:
         list: [dynamic]MalType
         for elem in ast {
-            evaled := EVAL(elem, repl_env) or_return
+            evaled := EVAL(elem, outer_env) or_return
             append(&list, evaled)
         }
         return Vector(list[:]), .none
@@ -105,14 +117,16 @@ eval_ast :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Err
     case Hash_Map:
         m := make(map[^MalType]MalType)
         for k, v in ast {
-            evaled := EVAL(v, repl_env) or_return
+            evaled := EVAL(v, outer_env) or_return
             m[k] = evaled
         }
         return m, .none
 
     case Symbol:
-        val, ok := env.env_get(repl_env, ast)
+        val, ok := types.env_get(outer_env, ast)
         if ok {
+                // cl, ok := val.(Closure)
+                // if ok do prn_env(&cl.env)
             return val, .none
         } else {
             fmt.printfln("Error: symbol '%s' not found", ast)
@@ -123,22 +137,20 @@ eval_ast :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, err: Eval_Err
     return input, .none
 }
 
-eval_def :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
     sym := ast[1].(Symbol)
-    // Make a permanent copy of the symbol (see clone_symbol)
-    sym = clone_symbol(sym)
     // Evaluate the expression to get symbol value
-    val := EVAL(ast[2], repl_env) or_return
+    val := EVAL(ast[2], outer_env) or_return
     // Set environment variable
-    env.env_set(repl_env, sym, val)
+    types.env_set(outer_env, sym, val)
     // Retrieve variable
-    s, ok := env.env_get(repl_env, sym)
+    s, ok := types.env_get(outer_env, sym)
     return s, .none
 }
 
-eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
     let_env: Env
-    let_env.outer = repl_env
+    let_env.outer = outer_env
 
     bindings: []MalType
     #partial switch t in ast[1] {
@@ -160,55 +172,158 @@ eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
     for i := 0; i < len(bindings); i += 2 {
         name := bindings[i].(Symbol)
         val := EVAL(bindings[i+1], &let_env) or_return
-        env.env_set(&let_env, name, val)
+        types.env_set(&let_env, name, val)
     }
     // Evaluate final expression
     return EVAL(ast[2], &let_env)
 }
 
-eval_if :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
-    cond := EVAL(ast[1], repl_env) or_return
+eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
+    cond := EVAL(ast[1], outer_env) or_return
     // If third element is missing, it defaults to nil
     third:= ast[3] if len(ast) == 4 else MalType(Nil{})
 
     #partial switch t in cond {
     case Nil:
-        return EVAL(third, repl_env)
+        return EVAL(third, outer_env)
     case bool:
         if !t {
-            return EVAL(third, repl_env)
+            return EVAL(third, outer_env)
         }
     }
-    return EVAL(ast[2], repl_env)
+    return EVAL(ast[2], outer_env)
 }
 
-eval_do :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
     for i in 1..<len(ast) {
-        res = EVAL(ast[i], repl_env) or_return
+        res = EVAL(ast[i], outer_env) or_return
     }
     return res, .none
 }
 
-eval_fn :: proc(ast: List, repl_env: ^Env) -> (fn: Closure, err: Eval_Error) {
+eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, err: Eval_Error) {
     // capture args
     #partial switch args in ast[1] {
     case List:
         for arg in args {
-            append(&fn.binds, arg.(Symbol))
+            append(&fn.args, arg.(Symbol))
         }
     case:
         fmt.println("Error: the second member of a fn* expression must be a list.")
     }
+    // Capture environment
+
+    // First attempt, capturing vars out of environment and into map:
+    // if outer_env != &main_env {
+    //     for k, v in outer_env.data {
+    //         fn.binds[k] = v
+    //     }
+    // }
+    // It actually worked pretty well, except with nested envs
+    // (e.g. let* inside a let*).
+    //
+    // Second attempt, making outer_env the function's env.
+    // I don't think this is a good idea,
+    // because it might lead to subtle bugs
+    // (overwriting vars with the same name).
+    // It worked in quite a few regular functions (non-closures),
+    // but crashed on fibonacci and any closure.
+    // fn.env = outer_env
+
+    // Third attempt, what I believe should be the correct approach.
+    // This does not work at all, and crashes with an address boundary error.
+    // Somewhere, somehow, the memory gets overwritten, I guess?
+    // new_env: Env
+    // fn.env = &new_env
+    // fn.env.outer = outer_env
+
+    // So I tried printing out the value of the env.
+    // It turned out that fn.env.outer has an address
+    // inside eval_fn, but once it is returned to EVAL,
+    // it disappears, along with anything inside fn.env.data
+    //
+    // user> (def! inc (fn* (x) (+ 1 x)))
+    // env inside eval_fn: &Env{outer = 0x7B20AF68B900, data = map[test=8]}
+    // env inside EVAL: &Env{outer = <nil>, data = map[]}
+    //
+    // Basically, fn.env becomes nil
+    // new_env: Env
+    // fn.env = &new_env
+    // fn.env.outer = new_clone(outer_env^)
+
+    // Ok, so maybe I should change the Closure type
+    // to contain an actual Env, instead of a pointer to one?
+    // [changed in types/types.odin]
+    new_env: Env
+    fn.env = new_env
+    fn.env.outer = outer_env
+    // I think I'm on the right track here.
+    // The env correctly gets passed back to EVAL,
+    // and shows up there.
+    // The let* env gets destroyed right after evaluation,
+    // but test data in the closure env survives.
+    // Unfortunately, all closure tests still crash.
+    // As far as I can tell, if the outer_env is not
+    // main_env, but instead some other environment,
+    // it becomes corrupted right after evaluation.
+    // The env of a fn* closing over a fn* becomes nil,
+    // while the env of a let* closing over a fn*
+    // crashes with an address boundary error
+    // (even when I just try to print the debug info).
+
+    // This gets even weirder.
+    // user> (def! gen-plus5 (fn* () (fn* (b) (+ 5 b))))
+    // user> (def! plus5 (gen-plus5))
+    // user> (plus5 3)
+    // Error: symbol '+' not found
+    // user> (let* (x 3) (plus5 x))
+    // 8
+    //
+    // I think the issue here is that there are two
+    // competing environments: one is the closure
+    // and its outer envs, and the other one is where
+    // it gets called from, and its outer envs.
+    // This is basically lexical vs dynamic scoping.
+    // These need to be reconsiled somehow.
+    // UPDATE:
+    // After reconsiling, plus5 crashes no matter
+    // how I run it (when I try to print its outer env).
+    // user> (def! gen-plus5 (fn* () (fn* (b) (+ 5 b))))
+    // user> (def! plus5 (gen-plus5))
+    // However, the env of gen-plus5 is alive and well.
+    // So something happens to the pointer inside plus5.
+    // It happens already in `def!`.
+
+    fn.env.data["test"] = test_num
+    test_num += 1
+    // fmt.println("env inside eval_fn:")
+    // prn_env(&fn.env)
     // capture body
     fn.body = &ast[2]
     return fn, .none
 }
 
-apply_fn :: proc(list: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+// DEBUG
+test_num := 1
+prn_env :: proc(env: ^Env) {
+    if env == &main_env {
+        fmt.println("main env")
+        return
+    }
+    fmt.println("data:", env.data)
+    if env.outer != nil {
+        fmt.println("outer:")
+        prn_env(env.outer)
+    } else {
+        fmt.println("nil")
+    }
+}
+
+apply_fn :: proc(list: List) -> (res: MalType, err: Eval_Error) {
     // Extract function
     fst := list[0]
     f, ok := fst.(Fn)
-    if !ok do return apply_closure(list, repl_env)
+    if !ok do return apply_closure(list)
 
     // Extract arguments.
     // These have to be pointers (see types/types.odin)
@@ -223,34 +338,29 @@ apply_fn :: proc(list: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) 
     return f(..ptrs[:]), .none
 }
 
-apply_closure :: proc(list: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
+apply_closure :: proc(list: List) -> (res: MalType, err: Eval_Error) {
     fst := list[0]
     f, ok := fst.(Closure)
     if !ok do return nil, .not_a_function
 
-    fn_env: Env
-    fn_env.outer = repl_env
-
-    for i in 0..<len(f.binds) {
+    for i in 0..<len(f.args) {
         // "Rest" args with '&'
-        if f.binds[i] == "&" {
-            rest_bind := f.binds[i+1]
-            rest_args := List(list[i+1:])
-            env.env_set(&fn_env, rest_bind, rest_args)
+        if f.args[i] == "&" {
+            rest_args := f.args[i+1]
+            rest_vals := List(list[i+1:])
+            types.env_set(&f.env, rest_args, rest_vals)
             break
         }
         // Regular args
-        env.env_set(&fn_env, f.binds[i], list[i+1])
+        types.env_set(&f.env, f.args[i], list[i+1])
     }
 
-    return EVAL(f.body^, &fn_env)
+    return EVAL(f.body^, &f.env)
 }
 
 create_env :: proc() -> (repl_env: Env) {
-    using env
-
     for name, fn in core.make_ns() {
-        env_set(&repl_env, name, Fn(fn))
+        types.env_set(&repl_env, name, Fn(fn))
     }
 
     return repl_env
@@ -263,6 +373,9 @@ PRINT :: proc(ast: MalType) -> string {
 rep :: proc(s: string) -> (p: string, err: Error) {
     r := READ(s) or_return
     e := EVAL(r, &main_env) or_return
+            // cl, ok := e.(Closure)
+            // fmt.println("env after rep:")
+            // prn_env(&cl.env)
     p = PRINT(e)
     return p, err
 }
@@ -289,6 +402,9 @@ main :: proc() {
         switch input {
         case ",q\n", ",quit\n":
             return
+        case ",env\n":
+            fmt.println("data:", main_env.data)
+            continue
         case "\n":
             continue
         }

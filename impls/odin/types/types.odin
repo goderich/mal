@@ -30,7 +30,7 @@ Hash_Map :: map[^MalType]MalType
 Fn :: proc(..^MalType) -> MalType
 
 Closure :: struct {
-    binds: [dynamic]Symbol,
-    exprs: [dynamic]MalType,
+    args: [dynamic]Symbol,
     body: ^MalType,
+    env: Env,
 }

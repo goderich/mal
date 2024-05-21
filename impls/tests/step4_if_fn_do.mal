@@ -146,6 +146,10 @@
 ( (fn* (f x) (f x)) (fn* (a) (+ 1 a)) 7)
 ;=>8
 
+;; Ignore homophonous vars in outer scope
+(let* (a 10 b 20) ( (fn* (a b) (+ b a)) 3 4))
+;=>7
+
 
 ;; Testing closures
 ( ( (fn* (a) (fn* (b) (+ a b))) 5) 7)
@@ -156,10 +160,20 @@
 (plus5 7)
 ;=>12
 
+;; Closing over with let*
+(def! plus1 (let* (one 1) (fn* (x) (+ one x))))
+(plus1 7)
+;=>8
+
 (def! gen-plusX (fn* (x) (fn* (b) (+ x b))))
 (def! plus7 (gen-plusX 7))
 (plus7 8)
 ;=>15
+
+;; Testing environment at definition and call site
+(def! plus-ten (gen-plusX 10))
+(let* (x 4) (plus-ten x))
+;=>14
 
 ;; Testing do form
 (do (prn 101))
