@@ -175,6 +175,17 @@
 (let* (x 4) (plus-ten x))
 ;=>14
 
+;; Testing lexical scope
+(def! n 10)
+(def! f (fn* (x) (+ x n)))
+(f 10)
+;=>20
+(def! n 20)
+(f 10)
+;=>30
+(let* (n 100) (f n))
+;=>120
+
 ;; Testing do form
 (do (prn 101))
 ;/101
