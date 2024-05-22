@@ -129,7 +129,7 @@ eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) 
 }
 
 eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
-    let_env: Env
+    let_env := new(Env)
     let_env.outer = outer_env
 
     bindings: []MalType
@@ -151,11 +151,11 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) 
     // Iterate over pairs, adding bindings to the environment.
     for i := 0; i < len(bindings); i += 2 {
         name := bindings[i].(Symbol)
-        val := EVAL(bindings[i+1], &let_env) or_return
-        types.env_set(&let_env, name, val)
+        val := EVAL(bindings[i+1], let_env) or_return
+        types.env_set(let_env, name, val)
     }
     // Evaluate final expression
-    return EVAL(ast[2], &let_env)
+    return EVAL(ast[2], let_env)
 }
 
 eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
@@ -193,8 +193,7 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, err: Eval_Error) {
     }
 
     // Create function environment
-    new_env: Env
-    fn.env = new_env
+    fn.env = new(Env)^
     fn.env.outer = outer_env
 
     fn.body = &ast[2]
