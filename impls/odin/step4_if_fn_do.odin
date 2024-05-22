@@ -185,11 +185,11 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, err: Eval_Error) {
     // Capture args
     #partial switch args in ast[1] {
     case List:
-        for arg in args {
-            append(&fn.args, arg.(Symbol))
-        }
+        for arg in args do append(&fn.args, arg.(Symbol))
+    case Vector:
+        for arg in args do append(&fn.args, arg.(Symbol))
     case:
-        fmt.println("Error: the second member of a fn* expression must be a list.")
+        fmt.println("Error: the second member of a fn* expression must be a vector or list.")
     }
 
     // Create function environment
