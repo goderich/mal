@@ -50,13 +50,8 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error)
     case List:
         if len(ast) == 0 do return ast, .none
 
-        fst, ok := ast[0].(Symbol)
-        if !ok {
-            fmt.println("Error: The first element of a function call has to be a symbol.")
-            return nil, .not_a_function
-        }
-
         // Special forms:
+        fst, ok := ast[0].(Symbol)
         switch fst {
         case "def!":
             return eval_def(ast, outer_env)
