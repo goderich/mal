@@ -1,6 +1,7 @@
 package core
 
 import "core:fmt"
+import "core:strings"
 
 import "../types"
 import "../reader"
@@ -72,14 +73,47 @@ make_ns :: proc() -> (ns: map[Symbol]Fn) {
     }
 
     ns["prn"] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]
-        fmt.println(reader.pr_str(x^))
+        list: [dynamic]string
+        for x in xs {
+            append(&list, reader.pr_str(x^))
+        }
+        fmt.println(strings.join(list[:], " ", allocator = context.temp_allocator))
         return Nil{}
     }
 
+    ns["println"] = proc(xs: ..^MalType) -> MalType {
+        list: [dynamic]string
+        for x in xs {
+            append(&list, reader.pr_str(x^, print_readably = false))
+        }
+        fmt.println(strings.join(list[:], " ", allocator = context.temp_allocator))
+        return Nil{}
+    }
+
+    ns["pr-str"] = proc(xs: ..^MalType) -> MalType {
+        list: [dynamic]string
+        for x in xs {
+            append(&list, reader.pr_str(x^))
+        }
+        return strings.join(list[:], " ")
+    }
+
+    ns["str"] = proc(xs: ..^MalType) -> MalType {
+        list: [dynamic]string
+        for x in xs {
+            append(&list, reader.pr_str(x^, print_readably = false))
+        }
+        return strings.concatenate(list[:])
+    }
+
     ns["empty?"] = proc(xs: ..^MalType) -> MalType {
-        list := xs[0].(List)
-        return len(list) == 0
+        #partial switch x in xs[0] {
+        case List:
+            return len(x) == 0
+        case Vector:
+            return len(x) == 0
+        }
+        return Nil{}
     }
 
     ns["count"] = proc(xs: ..^MalType) -> MalType {
