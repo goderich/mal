@@ -8,6 +8,7 @@ import "core:strings"
 import "types"
 import "reader"
 import "core"
+import "lib"
 
 MalType :: types.MalType
 Nil :: types.Nil
@@ -132,13 +133,8 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) 
     let_env := new(Env)
     let_env.outer = outer_env
 
-    bindings: []MalType
-    #partial switch t in ast[1] {
-    case List:
-        bindings = cast([]MalType)t
-    case Vector:
-        bindings = cast([]MalType)t
-    case:
+    bindings, ok := lib.unpack_seq(ast[1])
+    if !ok {
         fmt.println("Error: the second member of a let* expression must be a list or a vector.")
         return nil, .let_second_expr
     }
@@ -183,12 +179,10 @@ eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
 
 eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, err: Eval_Error) {
     // Capture args
-    #partial switch args in ast[1] {
-    case List:
+    args, ok := lib.unpack_seq(ast[1])
+    if ok {
         for arg in args do append(&fn.args, arg.(Symbol))
-    case Vector:
-        for arg in args do append(&fn.args, arg.(Symbol))
-    case:
+    } else {
         fmt.println("Error: the second member of a fn* expression must be a vector or list.")
     }
 
