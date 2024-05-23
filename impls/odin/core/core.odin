@@ -5,6 +5,7 @@ import "core:strings"
 
 import "../types"
 import "../reader"
+import "../lib"
 
 MalType :: types.MalType
 List :: types.List
@@ -134,7 +135,7 @@ make_ns :: proc() -> (ns: map[Symbol]Fn) {
         x_outer := xs[0]^
         y_outer := xs[1]^
 
-        return equal(x_outer, y_outer)
+        return is_equal(x_outer, y_outer)
     }
 
     ns["<"] = proc(xs: ..^MalType) -> MalType {
@@ -164,7 +165,7 @@ make_ns :: proc() -> (ns: map[Symbol]Fn) {
     return ns
 }
 
-equal :: proc(x_outer, y_outer: MalType) -> bool {
+is_equal :: proc(x_outer, y_outer: MalType) -> bool {
     #partial switch x in x_outer {
     case int:
         y, ok := y_outer.(int)
@@ -185,14 +186,21 @@ equal :: proc(x_outer, y_outer: MalType) -> bool {
         y, ok := y_outer.(Keyword)
         return ok && x == y
     case List:
-        y, ok := y_outer.(List)
-        if !ok do return false
-        eq_len := len(x) == len(y)
-        if !eq_len do return false
-        for i in 0..<len(x) {
-            if !equal(x[i], y[i]) do return false
-        }
-        return true
+        return is_equal_seqs(x, y_outer)
+    case Vector:
+        return is_equal_seqs(x, y_outer)
     }
     return false
+}
+
+is_equal_seqs :: proc(x_outer, y_outer: MalType) -> bool {
+    xs := lib.unpack_seq(x_outer) or_return
+    ys := lib.unpack_seq(y_outer) or_return
+
+    if !(len(xs) == len(ys)) do return false
+
+    for i in 0..<len(xs) {
+        if !is_equal(xs[i], ys[i]) do return false
+    }
+    return true
 }
