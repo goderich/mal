@@ -14,7 +14,7 @@ Vector :: types.Vector
 Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
-Fn :: types.Fn
+Core_Fn :: types.Core_Fn
 
 Env :: types.Env
 
@@ -161,7 +161,7 @@ apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, err: Eval_Error) {
 
     // Extract function
     fst := list[0]
-    f, ok := fst.(Fn)
+    f, ok := fst.(Core_Fn)
     if !ok do return nil, .not_a_function
 
     // Extract arguments.
@@ -187,7 +187,7 @@ create_env :: proc() -> (repl_env: Env) {
         }
         return acc
     }
-    env_set(&repl_env, "+", Fn(add))
+    env_set(&repl_env, "+", Core_Fn(add))
 
     multiply := proc(xs: ..^MalType) -> MalType {
         acc := 1
@@ -197,7 +197,7 @@ create_env :: proc() -> (repl_env: Env) {
         }
         return acc
     }
-    env_set(&repl_env, "*", Fn(multiply))
+    env_set(&repl_env, "*", Core_Fn(multiply))
 
     subtract := proc(xs: ..^MalType) -> MalType {
         acc := xs[0].(int)
@@ -208,7 +208,7 @@ create_env :: proc() -> (repl_env: Env) {
         }
         return acc
     }
-    env_set(&repl_env, "-", Fn(subtract))
+    env_set(&repl_env, "-", Core_Fn(subtract))
 
     divide := proc(xs: ..^MalType) -> MalType {
         acc := xs[0].(int)
@@ -219,7 +219,7 @@ create_env :: proc() -> (repl_env: Env) {
         }
         return acc
     }
-    env_set(&repl_env, "/", Fn(divide))
+    env_set(&repl_env, "/", Core_Fn(divide))
 
     return repl_env
 }

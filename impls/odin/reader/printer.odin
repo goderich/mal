@@ -36,10 +36,10 @@ pr_str :: proc(ast: MalType, print_readably := true) -> string {
         return pr_vector(t, print_readably)
     case Hash_Map:
         return pr_hash_map(t, print_readably)
+    case Core_Fn:
+        return "#<function>"
     case Fn:
         return "#<function>"
-    case Closure:
-        return "#<closure>"
     }
     return ""
 }

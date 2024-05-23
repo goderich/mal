@@ -14,10 +14,10 @@ Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Nil :: types.Nil
+Core_Fn :: types.Core_Fn
 Fn :: types.Fn
-Closure :: types.Closure
 
-make_ns :: proc() -> (ns: map[Symbol]Fn) {
+make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
     ns["+"] = proc(xs: ..^MalType) -> MalType {
         acc := 0

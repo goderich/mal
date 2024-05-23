@@ -12,8 +12,8 @@ MalType :: union {
     Vector,
     Hash_Map,
 
+    Core_Fn,
     Fn,
-    Closure,
 }
 
 Symbol :: distinct string
@@ -27,9 +27,9 @@ Hash_Map :: map[^MalType]MalType
 
 // A similar thing happens with functions,
 // but I'm not sure why a pointer is needed here.
-Fn :: proc(..^MalType) -> MalType
+Core_Fn :: proc(..^MalType) -> MalType
 
-Closure :: struct {
+Fn :: struct {
     args: [dynamic]Symbol,
     body: ^MalType,
     env: Env,

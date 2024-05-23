@@ -3,7 +3,6 @@ package mal
 import "core:os"
 import "core:mem/virtual"
 import "core:fmt"
-import "core:strings"
 
 import "types"
 import "reader"
@@ -17,8 +16,8 @@ Vector :: types.Vector
 Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
+Core_Fn :: types.Core_Fn
 Fn :: types.Fn
-Closure :: types.Closure
 
 Env :: types.Env
 
@@ -177,7 +176,7 @@ eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
     return res, .none
 }
 
-eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, err: Eval_Error) {
+eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
     // Capture args
     args, ok := lib.unpack_seq(ast[1])
     if ok {
@@ -197,7 +196,7 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, err: Eval_Error) {
 apply_fn :: proc(list: List) -> (res: MalType, err: Eval_Error) {
     // Extract function
     fst := list[0]
-    f, ok := fst.(Fn)
+    f, ok := fst.(Core_Fn)
     if !ok do return apply_closure(list)
 
     // Extract arguments.
@@ -216,7 +215,7 @@ apply_fn :: proc(list: List) -> (res: MalType, err: Eval_Error) {
 apply_closure :: proc(list: List) -> (res: MalType, err: Eval_Error) {
     // Get the address of the first element,
     // which should be a closure.
-    f, ok := &list[0].(Closure)
+    f, ok := &list[0].(Fn)
     if !ok do return nil, .not_a_function
 
     for i in 0..<len(f.args) {
@@ -236,7 +235,7 @@ apply_closure :: proc(list: List) -> (res: MalType, err: Eval_Error) {
 
 create_env :: proc() -> (repl_env: Env) {
     for name, fn in core.make_ns() {
-        types.env_set(&repl_env, name, Fn(fn))
+        types.env_set(&repl_env, name, Core_Fn(fn))
     }
 
     return repl_env
