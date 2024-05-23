@@ -178,9 +178,9 @@ eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
 
 eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
     // Capture args
-    args, ok := lib.unpack_seq(ast[1])
+    params, ok := lib.unpack_seq(ast[1])
     if ok {
-        for arg in args do append(&fn.args, arg.(Symbol))
+        for param in params do append(&fn.params, param.(Symbol))
     } else {
         fmt.println("Error: the second member of a fn* expression must be a vector or list.")
     }
@@ -189,7 +189,7 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
     fn.env = new(Env)^
     fn.env.outer = outer_env
 
-    fn.body = &ast[2]
+    fn.ast = &ast[2]
     return fn, .none
 }
 
@@ -218,19 +218,19 @@ apply_closure :: proc(list: List) -> (res: MalType, err: Eval_Error) {
     f, ok := &list[0].(Fn)
     if !ok do return nil, .not_a_function
 
-    for i in 0..<len(f.args) {
-        // "Rest" args with '&'
-        if f.args[i] == "&" {
-            rest_args := f.args[i+1]
+    for i in 0..<len(f.params) {
+        // "Rest" params with '&'
+        if f.params[i] == "&" {
+            rest_params := f.params[i+1]
             rest_vals := List(list[i+1:])
-            types.env_set(&f.env, rest_args, rest_vals)
+            types.env_set(&f.env, rest_params, rest_vals)
             break
         }
         // Regular args
-        types.env_set(&f.env, f.args[i], list[i+1])
+        types.env_set(&f.env, f.params[i], list[i+1])
     }
 
-    return EVAL(f.body^, &f.env)
+    return EVAL(f.ast^, &f.env)
 }
 
 create_env :: proc() -> (repl_env: Env) {

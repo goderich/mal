@@ -30,7 +30,7 @@ Hash_Map :: map[^MalType]MalType
 Core_Fn :: proc(..^MalType) -> MalType
 
 Fn :: struct {
-    args: [dynamic]Symbol,
-    body: ^MalType,
+    params: [dynamic]Symbol,
+    ast: ^MalType,
     env: Env,
 }
