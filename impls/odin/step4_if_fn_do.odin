@@ -131,16 +131,7 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) 
     let_env := new(Env)
     let_env.outer = outer_env
 
-    bindings, ok := lib.unpack_seq(ast[1])
-    if !ok {
-        fmt.println("Error: the second member of a let* expression must be a list or a vector.")
-        return nil, .let_second_expr
-    }
-
-    if len(bindings) % 2 != 0 {
-        fmt.println("Error: the list of bindings in let* must have an even number of elements.")
-        return nil, .let_second_expr
-    }
+    bindings := to_list(ast[1]) or_return
 
     // Iterate over pairs, adding bindings to the environment.
     for i := 0; i < len(bindings); i += 2 {
@@ -150,6 +141,23 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) 
     }
     // Evaluate final expression
     return EVAL(ast[2], let_env)
+
+    // Unpacking list or vector, error handling
+    to_list :: proc(ast: MalType) -> (res: []MalType, err: Eval_Error) {
+        binds, ok := lib.unpack_seq(ast)
+
+        if !ok {
+            fmt.println("Error: the second member of a let* expression must be a list or a vector.")
+            return nil, .let_second_expr
+        }
+
+        if len(binds) % 2 != 0 {
+            fmt.println("Error: the list of bindings in let* must have an even number of elements.")
+            return nil, .let_second_expr
+        }
+
+        return binds, .none
+    }
 }
 
 eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
