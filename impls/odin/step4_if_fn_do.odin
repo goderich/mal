@@ -105,8 +105,7 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Er
         return m, .none
 
     case Symbol:
-        val, ok := types.env_get(outer_env, ast)
-        if ok {
+        if val, ok := types.env_get(outer_env, ast); ok {
             return val, .none
         } else {
             fmt.printfln("Error: symbol '%s' not found", ast)
@@ -178,8 +177,7 @@ eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
 
 eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
     // Capture args
-    params, ok := lib.unpack_seq(ast[1])
-    if ok {
+    if params, ok := lib.unpack_seq(ast[1]); ok {
         for param in params do append(&fn.params, param.(Symbol))
     } else {
         fmt.println("Error: the second member of a fn* expression must be a vector or list.")
@@ -278,8 +276,7 @@ main :: proc() {
             continue
         }
 
-        r, rep_err := rep(input)
-        if rep_err != nil {
+        if r, rep_err := rep(input); rep_err != nil {
             switch rep_err {
             case Reader_Error.unbalanced_parentheses:
                 fmt.println("Error: unbalanced parentheses.")
