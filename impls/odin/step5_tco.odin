@@ -46,35 +46,39 @@ READ :: proc(s: string) -> (MalType, reader.Error) {
 
 // Special forms and function application
 EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
-    #partial switch ast in input {
-    case List:
-        if len(ast) == 0 do return ast, .none
+    ast := input
+    env := outer_env
+    for {
+        #partial switch body in ast {
+            case List:
+            if len(body) == 0 do return body, .none
 
-        // Special forms:
-        fst, ok := ast[0].(Symbol)
-        switch fst {
-        case "def!":
-            return eval_def(ast, outer_env)
-        case "let*":
-            return eval_let(ast, outer_env)
-        case "do":
-            return eval_do(ast, outer_env)
-        case "if":
-            return eval_if(ast, outer_env)
-        case "fn*":
-            return eval_fn(ast, outer_env)
+            // Special forms:
+            switch fst, ok := body[0].(Symbol); fst {
+            case "def!":
+                return eval_def(body, env)
+            case "let*":
+                ast, env = eval_let(body, env) or_return
+                continue
+            case "do":
+                return eval_do(body, env)
+            case "if":
+                return eval_if(body, env)
+            case "fn*":
+                return eval_fn(body, env)
+            }
+
+            // Normal function evaluation
+            evaled := eval_ast(body, env) or_return
+            res, err = apply_fn(evaled.(List))
+            if err == .not_a_function {
+                fmt.printfln("Error: '%s' is not a function.", body[0])
+            }
+            return res, err
         }
 
-        // Normal function evaluation
-        evaled := eval_ast(ast, outer_env) or_return
-        res, err = apply_fn(evaled.(List))
-        if err == .not_a_function {
-            fmt.printfln("Error: '%s' is not a function.", ast[0])
-        }
-        return res, err
+        return eval_ast(ast, env)
     }
-
-    return eval_ast(input, outer_env)
 }
 
 // Evaluation of symbols and data structures
@@ -127,7 +131,7 @@ eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) 
     return s, .none
 }
 
-eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_let :: proc(ast: List, outer_env: ^Env) -> (body: MalType, env: ^Env, err: Eval_Error) {
     let_env := new(Env)
     let_env.outer = outer_env
 
@@ -139,8 +143,9 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) 
         val := EVAL(bindings[i+1], let_env) or_return
         types.env_set(let_env, name, val)
     }
-    // Evaluate final expression
-    return EVAL(ast[2], let_env)
+
+    // Return body and the new environment
+    return ast[2], let_env, nil
 
     // Unpacking list or vector, error handling
     to_list :: proc(ast: MalType) -> (res: []MalType, err: Eval_Error) {
