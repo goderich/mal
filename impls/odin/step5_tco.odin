@@ -61,9 +61,11 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error)
                 ast, env = eval_let(body, env) or_return
                 continue
             case "do":
-                return eval_do(body, env)
+                ast = eval_do(body, env) or_return
+                continue
             case "if":
-                return eval_if(body, env)
+                ast = eval_if(body, env) or_return
+                continue
             case "fn*":
                 return eval_fn(body, env)
             }
@@ -168,24 +170,24 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (body: MalType, env: ^Env, err: 
 eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
     cond := EVAL(ast[1], outer_env) or_return
     // If third element is missing, it defaults to nil
-    third:= ast[3] if len(ast) == 4 else MalType(Nil{})
+    third := ast[3] if len(ast) == 4 else MalType(Nil{})
 
     #partial switch t in cond {
     case Nil:
-        return EVAL(third, outer_env)
+        return third, .none
     case bool:
         if !t {
-            return EVAL(third, outer_env)
+            return third, .none
         }
     }
-    return EVAL(ast[2], outer_env)
+    return ast[2], .none
 }
 
 eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
-    for i in 1..<len(ast) {
+    for i in 1..<(len(ast) - 1) {
         res = EVAL(ast[i], outer_env) or_return
     }
-    return res, .none
+    return ast[len(ast) - 1], .none
 }
 
 eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
