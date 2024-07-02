@@ -29,6 +29,7 @@ Eval_Error :: enum {
     not_a_function,
     lookup_failed,
     let_second_expr,
+    fn_second_expr,
 }
 
 Error :: union {
@@ -46,11 +47,11 @@ READ :: proc(s: string) -> (MalType, reader.Error) {
 
 // Special forms and function application
 EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
-    ast := input
-    env := outer_env
+    // Declaring variables for use with TCO
+    ast, env := input, outer_env
+    // Main TCO loop. Any `continue` inside is a tailcall.
     for {
-        #partial switch body in ast {
-            case List:
+        if body, ok := ast.(List); ok {
             if len(body) == 0 do return body, .none
 
             // Special forms:
@@ -72,14 +73,27 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error)
 
             // Normal function evaluation
             evaled := eval_ast(body, env) or_return
-            res, err = apply_fn(evaled.(List))
-            if err == .not_a_function {
+            args := evaled.(List)[1:]
+            // Needs to be passed as `&fn` to get
+            // addressable semantics (as suggested by the compiler),
+            // i.e. so that I can modify its contents.
+            #partial switch &fn in evaled.(List)[0] {
+                case Core_Fn:
+                return apply_core_fn(fn, args)
+
+                case Fn:
+                ast, env = eval_closure(&fn, args)
+                continue
+
+                case:
                 fmt.printfln("Error: '%s' is not a function.", body[0])
+                return ast, .not_a_function
             }
-            return res, err
+        } else {
+            // Not a function or special form
+            return eval_ast(ast, env)
         }
 
-        return eval_ast(ast, env)
     }
 }
 
@@ -191,11 +205,12 @@ eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
 }
 
 eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
-    // Capture args
+    // Capture parameters
     if params, ok := lib.unpack_seq(ast[1]); ok {
         for param in params do append(&fn.params, param.(Symbol))
     } else {
         fmt.println("Error: the second member of a fn* expression must be a vector or list.")
+        return fn, .fn_second_expr
     }
 
     // Create function environment
@@ -206,44 +221,34 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
     return fn, .none
 }
 
-apply_fn :: proc(list: List) -> (res: MalType, err: Eval_Error) {
-    // Extract function
-    fst := list[0]
-    f, ok := fst.(Core_Fn)
-    if !ok do return apply_closure(list)
-
+apply_core_fn :: proc(fn: Core_Fn, args: List) -> (res: MalType, err: Eval_Error) {
     // Extract arguments.
     // These have to be pointers (see types/types.odin)
     ptrs: [dynamic]^MalType
     defer delete(ptrs)
-    for elem in list[1:] {
+    for elem in args {
         p := new_clone(elem)
         append(&ptrs, p)
     }
 
     // Apply function and return the result.
-    return f(..ptrs[:]), .none
+    return fn(..ptrs[:]), .none
 }
 
-apply_closure :: proc(list: List) -> (res: MalType, err: Eval_Error) {
-    // Get the address of the first element,
-    // which should be a closure.
-    f, ok := &list[0].(Fn)
-    if !ok do return nil, .not_a_function
-
-    for i in 0..<len(f.params) {
+eval_closure :: proc(fn: ^Fn, args: List) -> (ast: MalType, env: ^Env) {
+    for i in 0..<len(fn.params) {
         // "Rest" params with '&'
-        if f.params[i] == "&" {
-            rest_params := f.params[i+1]
-            rest_vals := List(list[i+1:])
-            types.env_set(&f.env, rest_params, rest_vals)
+        if fn.params[i] == "&" {
+            rest_params := fn.params[i+1]
+            rest_vals := args[i:]
+            types.env_set(&fn.env, rest_params, rest_vals)
             break
         }
         // Regular args
-        types.env_set(&f.env, f.params[i], list[i+1])
+        types.env_set(&fn.env, fn.params[i], args[i])
     }
 
-    return EVAL(f.ast^, &f.env)
+    return fn.ast^, &fn.env
 }
 
 create_env :: proc() -> (repl_env: Env) {
