@@ -66,6 +66,9 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error)
                 continue
             case "fn*":
                 return eval_fn(body, env)
+            case "eval":
+                ast = EVAL(body[1], env) or_return
+                continue
             }
 
             // Normal function evaluation
@@ -274,9 +277,8 @@ main :: proc() {
     defer virtual.arena_destroy(&arena)
     context.allocator = virtual.arena_allocator(&arena)
 
-
     buf: [256]byte
-    fmt.println("Welcome to MAL-Odin 0.0.5")
+    fmt.println("Welcome to MAL-Odin 0.0.6")
     main_env := create_env()
 
     for {
