@@ -2,6 +2,7 @@ package core
 
 import "core:fmt"
 import "core:strings"
+import "core:os"
 
 import "../types"
 import "../reader"
@@ -105,6 +106,27 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             append(&list, reader.pr_str(x^, print_readably = false))
         }
         return strings.concatenate(list[:])
+    }
+
+    ns["read-str"] = proc(xs: ..^MalType) -> MalType {
+        #partial switch x in xs[0] {
+        case string:
+            return reader.read_str(x) or_else nil
+        }
+        return nil
+    }
+
+    ns["slurp"] = proc(xs: ..^MalType) -> MalType {
+        #partial switch x in xs[0] {
+        case string:
+            buf, ok := os.read_entire_file_from_filename(x)
+            if ok {
+                return string(buf)
+            } else {
+                fmt.println("Error: could not read file.")
+            }
+        }
+        return nil
     }
 
     ns["empty?"] = proc(xs: ..^MalType) -> MalType {
