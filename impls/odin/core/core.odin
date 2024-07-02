@@ -108,7 +108,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return strings.concatenate(list[:])
     }
 
-    ns["read-str"] = proc(xs: ..^MalType) -> MalType {
+    ns["read-string"] = proc(xs: ..^MalType) -> MalType {
         #partial switch x in xs[0] {
         case string:
             return reader.read_str(x) or_else nil
