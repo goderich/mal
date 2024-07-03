@@ -1,17 +1,5 @@
 package reader
 
-///// Error types
-
-Error :: enum {
-    none = 0,
-    unbalanced_parentheses,
-    unbalanced_quotes,
-    parse_int_error,
-    read_metadata_error,
-    unexpected_reader_macro,
-    invalid_map_key,
-}
-
 ///// Tokenizer types
 
 Token :: struct {

@@ -212,10 +212,9 @@ tokenizer_skip_comment :: proc(tokenizer: ^Tokenizer) {
 // READER
 ////////////////////
 
-read_str :: proc(str: string) -> (MalType, Error) {
+read_str :: proc(str: string) -> (MalType, bool) {
     r := reader_create(str)
-    f, err := read_form(&r)
-    return f, err
+    return read_form(&r)
 }
 
 reader_create :: proc(str: string) -> Reader {
@@ -223,51 +222,48 @@ reader_create :: proc(str: string) -> Reader {
     return Reader{tokenizer = t, ast = nil}
 }
 
-read_form :: proc(reader: ^Reader) -> (ast: MalType, err: Error) {
+read_form :: proc(reader: ^Reader) -> (ast: MalType, ok: bool) {
     token := next_token(&reader.tokenizer)
     return read_token(reader, token)
 }
 
-read_token :: proc(reader: ^Reader, t: Token) -> (ast: MalType, err: Error) {
+read_token :: proc(reader: ^Reader, t: Token) -> (ast: MalType, ok: bool) {
     #partial switch t.tag {
     case .LEFT_PAREN:
-        ast, err = read_list(reader)
+        return read_list(reader)
     case .LEFT_SQUARE:
-        ast, err = read_vector(reader)
+        return read_vector(reader)
     case .LEFT_CURLY:
-        ast, err = read_hash_map(reader)
+        return read_hash_map(reader)
     case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF:
-        ast, err = read_reader_macro(reader, t.tag)
+        return read_reader_macro(reader, t.tag)
     case .META:
-        ast, err = read_metadata(reader)
+        return read_metadata(reader)
     case:
-        ast, err = read_atom(reader, t)
+        return read_atom(reader, t)
     }
-    return ast, err
 }
 
 is_empty_token :: proc(t: Token) -> bool {
     return t == Token{}
 }
 
-read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, err: Error) {
+read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, ok: bool) {
     switch t.tag {
     case .NUMBER:
         s := reader.str[t.loc.begin:t.loc.end + 1]
-        ok: bool
-        atom, ok = strconv.parse_int(s, 10)
-        if !ok do err = .parse_int_error
+        return strconv.parse_int(s, 10)
     case .SYMBOL:
         str := strings.clone(string(reader.str[t.loc.begin:t.loc.end + 1]))
         switch str {
         case "nil":
-            atom = Nil{}
+            return Nil{}, true
         case "true":
-            atom = true
+            return true, true
         case "false":
-            atom = false
+            return false, true
         case:
-            atom = Symbol(str)
+            return Symbol(str), true
         }
     case .KEYWORD:
         str_clone := strings.clone(
@@ -275,33 +271,39 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, err: Error) {
             allocator = context.temp_allocator
         )
         strs := [2]string{ "ʞ", str_clone }
-        atom = Keyword(strings.concatenate(strs[:]))
+        return Keyword(strings.concatenate(strs[:])), true
     case .STRING:
-        atom, err = read_string(reader.str[t.loc.begin:t.loc.end + 1])
+        return read_string(reader.str[t.loc.begin:t.loc.end + 1])
     case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-        return nil, .unbalanced_parentheses
+        fmt.println("Error: unbalanced parentheses.")
+        return nil, false
     case .LEFT_PAREN, .LEFT_SQUARE, .LEFT_CURLY:
-        return nil, .unbalanced_parentheses
+        fmt.println("Error: unbalanced parentheses.")
+        return nil, false
     case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF, .META:
-        return nil, .unexpected_reader_macro
+        fmt.println("Error: unexpected reader macro.")
+        return nil, false
     case .END:
-        return nil, .unbalanced_parentheses
+        fmt.println("Error: unbalanced parentheses.")
+        return nil, false
     }
-    return atom, err
+    return
 }
 
-read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: List, err: Error) {
+read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: List, ok: bool) {
     list: [dynamic]MalType
     for {
         t := next_token(&reader.tokenizer)
 
         #partial switch t.tag {
         case .END:
-            return nil, .unbalanced_parentheses
+            fmt.println("Error: unbalanced parentheses.")
+            return nil, false
         case until:
-            return List(list[:]), .none
+            return List(list[:]), true
         case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-            return nil, .unbalanced_parentheses
+            fmt.println("Error: unbalanced parentheses.")
+            return nil, false
         case:
             f := read_token(reader, t) or_return
             append(&list, f)
@@ -309,19 +311,20 @@ read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: List, er
     }
 }
 
-read_vector :: proc(reader: ^Reader) -> (v: Vector, err: Error) {
+read_vector :: proc(reader: ^Reader) -> (v: Vector, ok: bool) {
     list := read_list(reader, Tag.RIGHT_SQUARE) or_return
-    return Vector(list), err
+    return Vector(list), true
 }
 
-read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, err: Error) {
+read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, ok: bool) {
     for {
         t := next_token(&reader.tokenizer)
         #partial switch t.tag {
         case .END, .RIGHT_PAREN, .RIGHT_SQUARE:
-            return nil, .unbalanced_parentheses
+            fmt.println("Error: unbalanced parentheses.")
+            return nil, false
         case .RIGHT_CURLY:
-            return m, .none
+            return m, true
         }
         // Because keys are pointers, they have to be
         // allocated on the heap.
@@ -331,7 +334,8 @@ read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, err: Error) {
         t2 := next_token(&reader.tokenizer)
         #partial switch t.tag {
         case .END, .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-            return nil, .unbalanced_parentheses
+            fmt.println("Error: unbalanced parentheses.")
+            return nil, false
         }
         v := read_token(reader, t2) or_return
 
@@ -339,16 +343,18 @@ read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, err: Error) {
     }
 }
 
-read_string :: proc(s: string) -> (res: string, err: Error) {
+read_string :: proc(s: string) -> (res: string, ok: bool) {
     if len(s) < 2 || s[len(s) - 1] != '"' {
-        return "", .unbalanced_quotes
+        fmt.println("Error: unbalanced quotes.")
+        return "", false
     }
     sb := strings.builder_make()
 
     for i := 1; i < len(s) - 1; i += 1 {
         if rune(s[i]) == '\\' {
             if i == len(s) - 2 {
-                return "", .unbalanced_quotes
+                fmt.println("Error: unbalanced quotes.")
+                return "", false
             }
             switch rune(s[i+1]) {
             case '\\':
@@ -364,10 +370,10 @@ read_string :: proc(s: string) -> (res: string, err: Error) {
             strings.write_rune(&sb, rune(s[i]))
         }
     }
-    return strings.to_string(sb), .none
+    return strings.to_string(sb), true
 }
 
-read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
+read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, ok: bool) {
     list: [dynamic]MalType
     sym: string
     #partial switch t {
@@ -384,17 +390,18 @@ read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, err: Error) {
     }
     f := read_form(reader) or_return
     append(&list, Symbol(sym), f)
-    return List(list[:]), .none
+    return List(list[:]), true
 }
 
-read_metadata :: proc(reader: ^Reader) -> (ast: List, err: Error) {
+read_metadata :: proc(reader: ^Reader) -> (ast: List, ok: bool) {
     list: [dynamic]MalType
     if next_token(&reader.tokenizer).tag != .LEFT_CURLY {
-        return nil, .read_metadata_error
+        fmt.println("Error: read metadata error.")
+        return nil, false
     }
     m := read_hash_map(reader) or_return
     data := read_form(reader) or_return
     sym := Symbol("with-meta")
     append(&list, sym, data, m)
-    return List(list[:]), .none
+    return List(list[:]), true
 }
