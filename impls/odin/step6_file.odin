@@ -68,6 +68,7 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error)
                 return eval_fn(body, env)
             case "eval":
                 ast = EVAL(body[1], env) or_return
+                env = outer_env
                 continue
             }
 
@@ -251,12 +252,14 @@ eval_closure :: proc(fn: ^Fn, args: List) -> (ast: MalType, env: ^Env) {
     return fn.ast^, &fn.env
 }
 
-create_env :: proc() -> (repl_env: Env) {
+create_env :: proc() -> ^Env {
+    repl_env := new(Env)
     for name, fn in core.make_ns() {
-        types.env_set(&repl_env, name, Core_Fn(fn))
+        types.env_set(repl_env, name, Core_Fn(fn))
     }
-    // Define `not` using MAL
-    rep("(def! not (fn* (a) (if a false true)))", &repl_env)
+    // Define some basic functions using MAL
+    rep("(def! not (fn* (a) (if a false true)))", repl_env)
+    rep(`(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))`, repl_env)
 
     return repl_env
 }
@@ -297,7 +300,7 @@ main :: proc() {
             continue
         }
 
-        if r, rep_err := rep(input, &main_env); rep_err != nil {
+        if r, rep_err := rep(input, main_env); rep_err != nil {
             switch rep_err {
             case Reader_Error.unbalanced_parentheses:
                 fmt.println("Error: unbalanced parentheses.")
