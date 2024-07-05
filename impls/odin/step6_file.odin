@@ -181,10 +181,10 @@ eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
 }
 
 eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
-    for i in 1..<(len(ast) - 1) {
+    for i in 1..<len(ast) {
         res = EVAL(ast[i], outer_env) or_return
     }
-    return ast[len(ast) - 1], true
+    return res, true
 }
 
 eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, ok: bool) {
@@ -267,10 +267,15 @@ main :: proc() {
     fmt.println("Welcome to MAL-Odin 0.0.6")
     main_env := create_env()
 
-    // TODO:
-    // command-line args:
-    // os.args
+    // Running a script from a file:
+    if len(os.args) > 1 {
+        cmd := fmt.aprintf(`(load-file "{0:s}")`, os.args[1])
+        main_env.data["*ARGV*"] = os.args[2:]
+        rep(cmd, main_env)
+        return
+    }
 
+    // Running interactively:
     for {
         // Prompt
         fmt.print("user> ")
