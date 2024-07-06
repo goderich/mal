@@ -269,7 +269,6 @@ main :: proc() {
     // Running a script from a file:
     if len(os.args) > 1 {
         cmd := fmt.aprintf(`(load-file "{0:s}")`, os.args[1])
-        main_env.data["*ARGV*"] = os.args[2:]
         rep(cmd, main_env)
         return
     }
@@ -284,6 +283,9 @@ main :: proc() {
             continue
         }
 
+        // Read command line arguments:
+        set_argv(main_env)
+
         // Special cases
         input := string(buf[:n])
         switch input {
@@ -297,5 +299,13 @@ main :: proc() {
         if r, ok := rep(input, main_env); ok {
             fmt.println(r)
         }
+    }
+
+    set_argv :: proc(env: ^Env) {
+        args: [dynamic]MalType
+        for i in 2..<len(os.args) {
+            append(&args, os.args[i])
+        }
+        types.env_set(env, "*ARGV*", List(args[:]))
     }
 }
