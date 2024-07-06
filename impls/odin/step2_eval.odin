@@ -14,31 +14,17 @@ Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 
-Reader_Error :: reader.Error
 Fn :: proc(..MalType) -> MalType
 Env :: map[reader.Symbol]Fn
 
-
-Eval_Error :: enum {
-    none,
-    not_a_symbol,
-    not_a_function,
+READ :: proc(s: string) -> (ast: MalType, ok: bool) {
+    return reader.read_str(s)
 }
 
-Error :: union {
-    Reader_Error,
-    Eval_Error,
-}
-
-READ :: proc(s: string) -> (MalType, reader.Error) {
-    ast, err := reader.read_str(s)
-    return ast, err
-}
-
-EVAL :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
+EVAL :: proc(input: MalType, env: ^Env) -> (res: MalType, ok: bool) {
     #partial switch ast in input {
     case List:
-        if len(ast) == 0 do return ast, .none
+        if len(ast) == 0 do return ast, true
         evaled := eval_ast(ast, env) or_return
         list := evaled.(List)
         return apply_fn(list, env)
@@ -47,7 +33,7 @@ EVAL :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
     return eval_ast(input, env)
 }
 
-eval_ast :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_ast :: proc(input: MalType, env: ^Env) -> (res: MalType, ok: bool) {
     #partial switch ast in input {
     case List:
         list: [dynamic]MalType
@@ -55,7 +41,7 @@ eval_ast :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
         }
-        return List(list[:]), .none
+        return List(list[:]), true
 
     case Vector:
         list: [dynamic]MalType
@@ -63,7 +49,7 @@ eval_ast :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
         }
-        return Vector(list[:]), .none
+        return Vector(list[:]), true
 
     case Hash_Map:
         m := make(map[^MalType]MalType)
@@ -71,20 +57,26 @@ eval_ast :: proc(input: MalType, env: ^Env) -> (res: MalType, err: Eval_Error) {
             evaled := EVAL(v, env) or_return
             m[k] = evaled
         }
-        return m, .none
+        return m, true
     }
 
-    return input, .none
+    return input, true
 }
 
-apply_fn :: proc(ast: List, env: ^Env) -> (res: MalType, err: Eval_Error) {
+apply_fn :: proc(ast: List, env: ^Env) -> (res: MalType, ok: bool) {
     list := cast([]MalType)ast
     fst := list[0]
-    sym, ok := fst.(Symbol)
-    if !ok do return nil, .not_a_symbol
+    sym, s_ok := fst.(Symbol)
+    if !s_ok {
+        fmt.printfln("Error: {:v} is not a symbol.", fst)
+        return nil, false
+    }
     f, exist := env[sym]
-    if !exist do return nil, .not_a_function
-    return f(..list[1:]), err
+    if !exist {
+        fmt.printfln("Error: {:v} is not defined.", sym)
+        return nil, false
+    }
+    return f(..list[1:]), true
 }
 
 create_env :: proc() -> (env: Env) {
@@ -133,12 +125,12 @@ PRINT :: proc(ast: MalType) -> string {
     return reader.pr_str(ast)
 }
 
-rep :: proc(s: string) -> (p: string, err: Error) {
+rep :: proc(s: string) -> (p: string, ok: bool) {
     r := READ(s) or_return
     env := create_env()
     e := EVAL(r, &env) or_return
     p = PRINT(e)
-    return p, err
+    return p, true
 }
 
 main :: proc() {
@@ -165,21 +157,8 @@ main :: proc() {
             continue
         }
 
-        r, rep_err := rep(input)
-        if rep_err != nil {
-            switch rep_err {
-            case Reader_Error.unbalanced_parentheses:
-                fmt.println("Error: unbalanced parentheses.")
-            case Reader_Error.unbalanced_quotes:
-                fmt.println("Error: unbalanced quotes.")
-            case Reader_Error.parse_int_error:
-                fmt.println("Error: parse int error.")
-            case Eval_Error.not_a_symbol:
-                fmt.println("Error: the first member of a list must be a symbol.")
-            case Eval_Error.not_a_function:
-                fmt.println("Error: symbol is not a function.")
-            }
-        } else {
+
+        if r, ok := rep(input); ok {
             fmt.println(r)
         }
     }
