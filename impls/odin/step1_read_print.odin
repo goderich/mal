@@ -6,9 +6,8 @@ import "core:mem/virtual"
 
 import "reader"
 
-READ :: proc(s: string) -> (reader.MalType, reader.Error) {
-    ast, err := reader.read_str(s)
-    return ast, err
+READ :: proc(s: string) -> (ast: reader.MalType, ok: bool) {
+    return reader.read_str(s)
 }
 
 EVAL :: proc(ast: reader.MalType) -> reader.MalType {
@@ -19,11 +18,11 @@ PRINT :: proc(ast: reader.MalType) -> string {
     return reader.pr_str(ast)
 }
 
-rep :: proc(s: string) -> (p: string, err: reader.Error) {
+rep :: proc(s: string) -> (p: string, ok: bool) {
     r := READ(s) or_return
     e := EVAL(r)
     p = PRINT(e)
-    return p, .none
+    return p, true
 }
 
 main :: proc() {
@@ -50,17 +49,7 @@ main :: proc() {
             continue
         }
 
-        r, rep_err := rep(input)
-        if rep_err != nil {
-            #partial switch rep_err {
-            case .unbalanced_parentheses:
-                fmt.println("Error: unbalanced parentheses.")
-            case .unbalanced_quotes:
-                fmt.println("Error: unbalanced quotes.")
-            case .parse_int_error:
-                fmt.println("Error: parse int error.")
-            }
-        } else {
+        if r, ok := rep(input); ok {
             fmt.println(r)
         }
     }
