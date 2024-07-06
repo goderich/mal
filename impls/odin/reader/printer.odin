@@ -40,6 +40,8 @@ pr_str :: proc(ast: MalType, print_readably := true) -> string {
         return "#<function>"
     case Fn:
         return "#<function>"
+    case Atom:
+        return fmt.aprintf("(atom {:v})", t^)
     }
     return ""
 }

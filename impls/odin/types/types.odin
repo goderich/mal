@@ -14,6 +14,8 @@ MalType :: union {
 
     Core_Fn,
     Fn,
+
+    Atom,
 }
 
 Symbol :: distinct string
@@ -34,3 +36,5 @@ Fn :: struct {
     ast: ^MalType,
     env: Env,
 }
+
+Atom :: ^MalType

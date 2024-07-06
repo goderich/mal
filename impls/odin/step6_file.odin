@@ -66,7 +66,8 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
                 return apply_core_fn(fn, args)
 
                 case Fn:
-                ast, env = eval_closure(&fn, args)
+                eval_closure(&fn, args)
+                ast, env = fn.ast^, &fn.env
                 continue
 
                 case:
@@ -217,7 +218,9 @@ apply_core_fn :: proc(fn: Core_Fn, args: List) -> (res: MalType, ok: bool) {
     return fn(..ptrs[:]), true
 }
 
-eval_closure :: proc(fn: ^Fn, args: List) -> (ast: MalType, env: ^Env) {
+// Maps fn parameters to args and adds them to
+// the closure environment, so no return needed.
+eval_closure :: proc(fn: ^Fn, args: List) {
     for i in 0..<len(fn.params) {
         // "Rest" params with '&'
         if fn.params[i] == "&" {
@@ -229,8 +232,6 @@ eval_closure :: proc(fn: ^Fn, args: List) -> (ast: MalType, env: ^Env) {
         // Regular args
         types.env_set(&fn.env, fn.params[i], args[i])
     }
-
-    return fn.ast^, &fn.env
 }
 
 create_env :: proc() -> ^Env {

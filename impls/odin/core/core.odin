@@ -17,6 +17,7 @@ Hash_Map :: types.Hash_Map
 Nil :: types.Nil
 Core_Fn :: types.Core_Fn
 Fn :: types.Fn
+Atom :: types.Atom
 
 make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
@@ -183,6 +184,43 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         y := xs[1]^.(int)
         return x >= y
     }
+
+    ns["atom"] = proc(xs: ..^MalType) -> MalType {
+        return Atom(xs[0])
+    }
+
+    ns["atom?"] = proc(xs: ..^MalType) -> MalType {
+        x := xs[0]^
+        _, ok := x.(Atom)
+        return ok
+    }
+
+    ns["deref"] = proc(xs: ..^MalType) -> MalType {
+        x := xs[0]^
+        a := x.(Atom) or_else nil
+        return a^
+    }
+
+    ns["reset!"] = proc(xs: ..^MalType) -> MalType {
+        x := xs[0]^
+        new_val := xs[1]^
+        a := x.(Atom) or_else nil
+        a^ = new_val
+        return a^
+    }
+
+    // ns["swap!"] = proc(xs: ..^MalType) -> MalType {
+    //     x := xs[0]^
+    //     a := x.(Atom) or_else nil
+    //     f := xs[1]^.(Core_Fn)
+
+    //     new_val: [dynamic]MalType
+    //     append(&new_val, f, a^)
+    //     for elem in xs[2:] {
+    //         append(&new_val, elem^)
+    //     }
+    //     return a^
+    // }
 
     return ns
 }
