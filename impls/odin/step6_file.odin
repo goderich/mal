@@ -209,9 +209,8 @@ apply_core_fn :: proc(fn: Core_Fn, args: List) -> (res: MalType, ok: bool) {
     // These have to be pointers (see types/types.odin)
     ptrs: [dynamic]^MalType
     defer delete(ptrs)
-    for elem in args {
-        p := new_clone(elem)
-        append(&ptrs, p)
+    for &elem in args {
+        append(&ptrs, &elem)
     }
 
     // Apply function and return the result.
