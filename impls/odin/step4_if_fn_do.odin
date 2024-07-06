@@ -21,34 +21,18 @@ Fn :: types.Fn
 
 Env :: types.Env
 
-Reader_Error :: reader.Error
-
-Eval_Error :: enum {
-    none,
-    not_a_symbol,
-    not_a_function,
-    lookup_failed,
-    let_second_expr,
-}
-
-Error :: union {
-    Reader_Error,
-    Eval_Error,
-}
-
 // Global environment created here for now.
 main_env := create_env()
 
-READ :: proc(s: string) -> (MalType, reader.Error) {
-    ast, err := reader.read_str(s)
-    return ast, err
+READ :: proc(s: string) -> (ast: MalType, ok: bool) {
+    return reader.read_str(s)
 }
 
 // Special forms and function application
-EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
+EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
     #partial switch ast in input {
     case List:
-        if len(ast) == 0 do return ast, .none
+        if len(ast) == 0 do return ast, true
 
         // Special forms:
         fst, ok := ast[0].(Symbol)
@@ -67,18 +51,19 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error)
 
         // Normal function evaluation
         evaled := eval_ast(ast, outer_env) or_return
-        res, err = apply_fn(evaled.(List))
-        if err == .not_a_function {
+        res, ok = apply_fn(evaled.(List))
+        if !ok {
             fmt.printfln("Error: '%s' is not a function.", ast[0])
+            return nil, false
         }
-        return res, err
+        return res, true
     }
 
     return eval_ast(input, outer_env)
 }
 
 // Evaluation of symbols and data structures
-eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
     #partial switch ast in input {
     case List:
         list: [dynamic]MalType
@@ -86,7 +71,7 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Er
             evaled := EVAL(elem, outer_env) or_return
             append(&list, evaled)
         }
-        return List(list[:]), .none
+        return List(list[:]), true
 
     case Vector:
         list: [dynamic]MalType
@@ -94,7 +79,7 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Er
             evaled := EVAL(elem, outer_env) or_return
             append(&list, evaled)
         }
-        return Vector(list[:]), .none
+        return Vector(list[:]), true
 
     case Hash_Map:
         m := make(map[^MalType]MalType)
@@ -102,32 +87,31 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, err: Eval_Er
             evaled := EVAL(v, outer_env) or_return
             m[k] = evaled
         }
-        return m, .none
+        return m, true
 
     case Symbol:
         if val, ok := types.env_get(outer_env, ast); ok {
-            return val, .none
+            return val, true
         } else {
             fmt.printfln("Error: symbol '%s' not found", ast)
-            return nil, .lookup_failed
+            return nil, false
         }
     }
 
-    return input, .none
+    return input, true
 }
 
-eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     sym := ast[1].(Symbol)
     // Evaluate the expression to get symbol value
     val := EVAL(ast[2], outer_env) or_return
     // Set environment variable
     types.env_set(outer_env, sym, val)
     // Retrieve variable
-    s, ok := types.env_get(outer_env, sym)
-    return s, .none
+    return types.env_get(outer_env, sym)
 }
 
-eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     let_env := new(Env)
     let_env.outer = outer_env
 
@@ -143,24 +127,24 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) 
     return EVAL(ast[2], let_env)
 
     // Unpacking list or vector, error handling
-    to_list :: proc(ast: MalType) -> (res: []MalType, err: Eval_Error) {
-        binds, ok := lib.unpack_seq(ast)
+    to_list :: proc(ast: MalType) -> (res: []MalType, ok: bool) {
+        binds, binds_ok := lib.unpack_seq(ast)
 
-        if !ok {
+        if !binds_ok {
             fmt.println("Error: the second member of a let* expression must be a list or a vector.")
-            return nil, .let_second_expr
+            return nil, false
         }
 
         if len(binds) % 2 != 0 {
             fmt.println("Error: the list of bindings in let* must have an even number of elements.")
-            return nil, .let_second_expr
+            return nil, false
         }
 
-        return binds, .none
+        return binds, true
     }
 }
 
-eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     cond := EVAL(ast[1], outer_env) or_return
     // If third element is missing, it defaults to nil
     third:= ast[3] if len(ast) == 4 else MalType(Nil{})
@@ -176,14 +160,14 @@ eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
     return EVAL(ast[2], outer_env)
 }
 
-eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, err: Eval_Error) {
+eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     for i in 1..<len(ast) {
         res = EVAL(ast[i], outer_env) or_return
     }
-    return res, .none
+    return res, true
 }
 
-eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
+eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, ok: bool) {
     // Capture args
     if params, ok := lib.unpack_seq(ast[1]); ok {
         for param in params do append(&fn.params, param.(Symbol))
@@ -196,14 +180,14 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, err: Eval_Error) {
     fn.env.outer = outer_env
 
     fn.ast = &ast[2]
-    return fn, .none
+    return fn, true
 }
 
-apply_fn :: proc(list: List) -> (res: MalType, err: Eval_Error) {
+apply_fn :: proc(list: List) -> (res: MalType, ok: bool) {
     // Extract function
     fst := list[0]
-    f, ok := fst.(Core_Fn)
-    if !ok do return apply_closure(list)
+    f, f_ok := fst.(Core_Fn)
+    if !f_ok do return apply_closure(list)
 
     // Extract arguments.
     // These have to be pointers (see types/types.odin)
@@ -215,14 +199,14 @@ apply_fn :: proc(list: List) -> (res: MalType, err: Eval_Error) {
     }
 
     // Apply function and return the result.
-    return f(..ptrs[:]), .none
+    return f(..ptrs[:]), true
 }
 
-apply_closure :: proc(list: List) -> (res: MalType, err: Eval_Error) {
+apply_closure :: proc(list: List) -> (res: MalType, ok: bool) {
     // Get the address of the first element,
     // which should be a closure.
-    f, ok := &list[0].(Fn)
-    if !ok do return nil, .not_a_function
+    f, f_ok := &list[0].(Fn)
+    if !f_ok do return nil, false
 
     for i in 0..<len(f.params) {
         // "Rest" params with '&'
@@ -251,11 +235,11 @@ PRINT :: proc(ast: MalType) -> string {
     return reader.pr_str(ast)
 }
 
-rep :: proc(s: string) -> (p: string, err: Error) {
+rep :: proc(s: string) -> (p: string, ok: bool) {
     r := READ(s) or_return
     e := EVAL(r, &main_env) or_return
     p = PRINT(e)
-    return p, err
+    return p, true
 }
 
 main :: proc() {
@@ -284,16 +268,7 @@ main :: proc() {
             continue
         }
 
-        if r, rep_err := rep(input); rep_err != nil {
-            switch rep_err {
-            case Reader_Error.unbalanced_parentheses:
-                fmt.println("Error: unbalanced parentheses.")
-            case Reader_Error.unbalanced_quotes:
-                fmt.println("Error: unbalanced quotes.")
-            case Reader_Error.parse_int_error:
-                fmt.println("Error: parse int error.")
-            }
-        } else {
+        if r, ok := rep(input); ok {
             fmt.println(r)
         }
     }
