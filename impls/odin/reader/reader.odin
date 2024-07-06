@@ -267,7 +267,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, ok: bool) {
         }
     case .KEYWORD:
         str := string(reader.str[t.loc.begin + 1:t.loc.end + 1])
-        return Keyword(fmt.aprintf("ʞ{0:s}", str)), true
+        return Keyword(fmt.aprintf("ʞ{:s}", str)), true
     case .STRING:
         return read_string(reader.str[t.loc.begin:t.loc.end + 1])
     case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:

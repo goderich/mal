@@ -268,7 +268,7 @@ main :: proc() {
 
     // Running a script from a file:
     if len(os.args) > 1 {
-        cmd := fmt.aprintf(`(load-file "{0:s}")`, os.args[1])
+        cmd := fmt.aprintf(`(load-file "{:s}")`, os.args[1])
         rep(cmd, main_env)
         return
     }
