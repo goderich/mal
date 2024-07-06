@@ -263,9 +263,9 @@ main :: proc() {
     defer virtual.arena_destroy(&arena)
     context.allocator = virtual.arena_allocator(&arena)
 
-    buf: [256]byte
-    fmt.println("Welcome to MAL-Odin 0.0.6")
     main_env := create_env()
+    // Read command line arguments:
+    set_argv(main_env)
 
     // Running a script from a file:
     if len(os.args) > 1 {
@@ -275,6 +275,8 @@ main :: proc() {
     }
 
     // Running interactively:
+    buf: [256]byte
+    fmt.println("Welcome to MAL-Odin 0.0.6")
     for {
         // Prompt
         fmt.print("user> ")
@@ -283,9 +285,6 @@ main :: proc() {
             fmt.println("Error: read error.")
             continue
         }
-
-        // Read command line arguments:
-        set_argv(main_env)
 
         // Special cases
         input := string(buf[:n])
