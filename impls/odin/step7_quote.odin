@@ -217,17 +217,28 @@ eval_quasiquote :: proc(ast: MalType) -> MalType {
         arr := lib.concat(Symbol("quote"), t)
         return List(arr[:])
     case List:
+        return eval_quasiquote_list(t)
+    case Vector:
+        list: [dynamic]MalType
+        append(&list,
+               Symbol("vec"),
+               eval_quasiquote_list(cast(List)t[:], true))
+        return List(list[:])
+    }
+    return ast
+
+    eval_quasiquote_list :: proc(ast: List, is_vec := false) -> MalType {
         // Empty
-        if len(t) == 0 do return ast
+        if len(ast) == 0 do return ast
 
         // Unquote
-        if sym, ok := t[0].(Symbol); ok && sym == Symbol("unquote") {
-            return t[1]
+        if sym, ok := ast[0].(Symbol); ok && !is_vec && sym == Symbol("unquote") {
+            return ast[1]
         }
 
         // Not unquote
         acc: [dynamic]MalType
-        #reverse for el in t {
+        #reverse for el in ast {
             // Splice unquote
             if list, is_list := el.(List); is_list && len(list) > 1 {
                 sym_el, ok_el := list[0].(Symbol)
@@ -242,7 +253,6 @@ eval_quasiquote :: proc(ast: MalType) -> MalType {
         }
         return List(acc[:])
     }
-    return ast
 }
 
 create_env :: proc() -> ^Env {
