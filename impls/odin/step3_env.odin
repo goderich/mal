@@ -7,6 +7,7 @@ import "core:strings"
 
 import "types"
 import "reader"
+import "core"
 
 MalType :: types.MalType
 List :: types.List
@@ -47,13 +48,7 @@ EVAL :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, ok: bool) {
 
         // Normal function evaluation
         evaled := eval_ast(ast, repl_env) or_return
-        list := evaled.(List)
-        res, ok = apply_fn(list, repl_env)
-        if !ok {
-            fmt.printfln("Error: '%s' is not a function.", ast[0])
-            return nil, false
-        }
-        return res, true
+        return apply_fn(evaled.(List), repl_env)
     }
 
     return eval_ast(input, repl_env)
@@ -140,69 +135,21 @@ eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, ok: bool) {
 }
 
 apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, ok: bool) {
-    list := cast([]MalType)ast
-
     // Extract function
-    fst := list[0]
-    f, f_ok := fst.(Core_Fn)
-    if !f_ok do return nil, false
-
-    // Extract arguments.
-    // These have to be pointers (see types/types.odin)
-    ptrs: [dynamic]^MalType
-    for elem in list[1:] {
-        p := new_clone(elem)
-        append(&ptrs, p)
-    }
+    f, f_ok := ast[0].(Core_Fn)
+    if !f_ok {
+        fmt.printfln("Error: '%s' is not a function.", ast[0])
+        return nil, false
+        }
 
     // Apply function and return the result.
-    return f(..ptrs[:]), true
+    return f(..cast([]MalType)ast[1:]), true
 }
 
 create_env :: proc() -> (repl_env: Env) {
-    using types
-
-    add := proc(xs: ..^MalType) -> MalType {
-        acc := 0
-        for x in xs {
-            n := x^.(int)
-            acc += n
-        }
-        return acc
+    for name, fn in core.make_ns() {
+        types.env_set(&repl_env, name, Core_Fn(fn))
     }
-    env_set(&repl_env, "+", Core_Fn(add))
-
-    multiply := proc(xs: ..^MalType) -> MalType {
-        acc := 1
-        for x in xs {
-            n := x^.(int)
-            acc *= n
-        }
-        return acc
-    }
-    env_set(&repl_env, "*", Core_Fn(multiply))
-
-    subtract := proc(xs: ..^MalType) -> MalType {
-        acc := xs[0].(int)
-        rest := xs[1:]
-        for x in rest {
-            n := x^.(int)
-            acc -= n
-        }
-        return acc
-    }
-    env_set(&repl_env, "-", Core_Fn(subtract))
-
-    divide := proc(xs: ..^MalType) -> MalType {
-        acc := xs[0].(int)
-        rest := xs[1:]
-        for x in rest {
-            n := x^.(int)
-            acc /= n
-        }
-        return acc
-    }
-    env_set(&repl_env, "/", Core_Fn(divide))
 
     return repl_env
 }

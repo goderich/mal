@@ -17,7 +17,7 @@ Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Core_Fn :: types.Core_Fn
-Fn :: types.Fn
+Closure :: types.Closure
 
 Env :: types.Env
 
@@ -46,7 +46,7 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
         case "if":
             return eval_if(ast, outer_env)
         case "fn*":
-            return eval_fn(ast, outer_env)
+            return eval_closure(ast, outer_env)
         }
 
         // Normal function evaluation
@@ -167,7 +167,7 @@ eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     return res, true
 }
 
-eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, ok: bool) {
+eval_closure :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, ok: bool) {
     // Capture args
     if params, ok := lib.unpack_seq(ast[1]); ok {
         for param in params do append(&fn.params, param.(Symbol))
@@ -189,23 +189,14 @@ apply_fn :: proc(list: List) -> (res: MalType, ok: bool) {
     f, f_ok := fst.(Core_Fn)
     if !f_ok do return apply_closure(list)
 
-    // Extract arguments.
-    // These have to be pointers (see types/types.odin)
-    ptrs: [dynamic]^MalType
-    defer delete(ptrs)
-    for elem in list[1:] {
-        p := new_clone(elem)
-        append(&ptrs, p)
-    }
-
     // Apply function and return the result.
-    return f(..ptrs[:]), true
+    return f(..cast([]MalType)list[1:]), true
 }
 
 apply_closure :: proc(list: List) -> (res: MalType, ok: bool) {
     // Get the address of the first element,
     // which should be a closure.
-    f, f_ok := &list[0].(Fn)
+    f, f_ok := &list[0].(Closure)
     if !f_ok do return nil, false
 
     for i in 0..<len(f.params) {

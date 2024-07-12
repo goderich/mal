@@ -17,7 +17,7 @@ Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Core_Fn :: types.Core_Fn
-Fn :: types.Fn
+Closure :: types.Closure
 
 Env :: types.Env
 
@@ -62,9 +62,9 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
             // i.e. so that I can modify its contents.
             #partial switch &fn in evaled.(List)[0] {
                 case Core_Fn:
-                return apply_core_fn(fn, args)
+                return fn(..cast([]MalType)args), true
 
-                case Fn:
+                case Closure:
                 ast, env = eval_closure(&fn, args)
                 continue
 
@@ -186,7 +186,7 @@ eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     return ast[len(ast) - 1], true
 }
 
-eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, ok: bool) {
+eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, ok: bool) {
     // Capture parameters
     if params, ok := lib.unpack_seq(ast[1]); ok {
         for param in params do append(&fn.params, param.(Symbol))
@@ -203,21 +203,7 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, ok: bool) {
     return fn, true
 }
 
-apply_core_fn :: proc(fn: Core_Fn, args: List) -> (res: MalType, ok: bool) {
-    // Extract arguments.
-    // These have to be pointers (see types/types.odin)
-    ptrs: [dynamic]^MalType
-    defer delete(ptrs)
-    for elem in args {
-        p := new_clone(elem)
-        append(&ptrs, p)
-    }
-
-    // Apply function and return the result.
-    return fn(..ptrs[:]), true
-}
-
-eval_closure :: proc(fn: ^Fn, args: List) -> (ast: MalType, env: ^Env) {
+eval_closure :: proc(fn: ^Closure, args: List) -> (ast: MalType, env: ^Env) {
     for i in 0..<len(fn.params) {
         // "Rest" params with '&'
         if fn.params[i] == "&" {
