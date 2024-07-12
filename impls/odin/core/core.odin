@@ -209,18 +209,20 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return a^
     }
 
-    // ns["swap!"] = proc(xs: ..^MalType) -> MalType {
-    //     x := xs[0]^
-    //     a := x.(Atom) or_else nil
-    //     f := xs[1]^.(Core_Fn)
+    ns["swap!"] = proc(xs: ..^MalType) -> MalType {
+        x := xs[0]^
+        a := x.(Atom) or_else nil
+        f := xs[1]
 
-    //     new_val: [dynamic]MalType
-    //     append(&new_val, f, a^)
-    //     for elem in xs[2:] {
-    //         append(&new_val, elem^)
-    //     }
-    //     return a^
-    // }
+        // Extract the function arguments
+        args: [dynamic]^MalType
+        append(&args, a)
+        append(&args, ..xs[2:])
+
+        res, ok := types.apply_ptrs(f, ..args[:])
+        a^ = res
+        return a^
+    }
 
     return ns
 }
