@@ -17,7 +17,7 @@ Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Core_Fn :: types.Core_Fn
-Fn :: types.Fn
+Closure :: types.Closure
 
 Env :: types.Env
 
@@ -48,7 +48,7 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
                 ast = eval_if(body, env) or_return
                 continue
             case "fn*":
-                return eval_fn(body, env)
+                return eval_closure(body, env)
             case "eval":
                 ast = EVAL(body[1], env) or_return
                 env = outer_env
@@ -63,9 +63,9 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
             // i.e. so that I can modify its contents.
             #partial switch &fn in evaled.(List)[0] {
                 case Core_Fn:
-                return types.apply_core_fn(fn, args)
+                return fn(..cast([]MalType)args), true
 
-                case Fn:
+                case Closure:
                 types.eval_closure(&fn, args)
                 ast, env = fn.ast^, &fn.env
                 continue
@@ -188,7 +188,7 @@ eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     return res, true
 }
 
-eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, ok: bool) {
+eval_closure :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, ok: bool) {
     // Capture parameters
     if params, ok := lib.unpack_seq(ast[1]); ok {
         for param in params do append(&fn.params, param.(Symbol))
@@ -200,16 +200,10 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, ok: bool) {
     // Create function environment
     fn.env = new(Env)^
     fn.env.outer = outer_env
-    fn.eval = _eval
+    fn.eval = EVAL
 
     fn.ast = &ast[2]
     return fn, true
-
-    // This is needed because Odin does not allow
-    // T to contain a proc that takes T as an argument.
-    _eval :: proc(input: ^MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
-        return EVAL(input^, outer_env)
-    }
 }
 
 create_env :: proc() -> ^Env {

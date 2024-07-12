@@ -12,7 +12,7 @@ Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Nil :: types.Nil
 Core_Fn :: types.Core_Fn
-Fn :: types.Fn
+Closure :: types.Closure
 
 unpack_seq :: proc(seq: MalType) -> (arr: []MalType, ok: bool) {
     #partial switch type in seq {

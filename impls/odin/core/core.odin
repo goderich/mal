@@ -16,100 +16,104 @@ Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Nil :: types.Nil
 Core_Fn :: types.Core_Fn
-Fn :: types.Fn
+Closure :: types.Closure
 Atom :: types.Atom
 
 make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
-    ns["+"] = proc(xs: ..^MalType) -> MalType {
+    ns["+"] = proc(xs: ..MalType) -> MalType {
         acc := 0
         for x in xs {
-            n := x^.(int)
+            n, ok := x.(int)
+            if !ok {
+                fmt.printfln("Error...")
+                return Nil{}
+            }
             acc += n
         }
         return acc
     }
 
-    ns["*"] = proc(xs: ..^MalType) -> MalType {
+    ns["*"] = proc(xs: ..MalType) -> MalType {
         acc := 1
         for x in xs {
-            n := x^.(int)
+            n := x.(int)
             acc *= n
         }
         return acc
     }
 
-    ns["-"] = proc(xs: ..^MalType) -> MalType {
+    ns["-"] = proc(xs: ..MalType) -> MalType {
         acc := xs[0].(int)
         rest := xs[1:]
         for x in rest {
-            n := x^.(int)
+            n := x.(int)
             acc -= n
         }
         return acc
     }
 
-    ns["/"] = proc(xs: ..^MalType) -> MalType {
+    ns["/"] = proc(xs: ..MalType) -> MalType {
         acc := xs[0].(int)
         rest := xs[1:]
         for x in rest {
-            n := x^.(int)
+            n := x.(int)
             acc /= n
         }
         return acc
     }
 
-    ns["list"] = proc(xs: ..^MalType) -> MalType {
+    ns["list"] = proc(xs: ..MalType) -> MalType {
         list: [dynamic]MalType
+        // TODO: no loop needed?
         for x in xs {
-            append(&list, x^)
+            append(&list, x)
         }
         return List(list[:])
     }
 
     // Right now the function ignores any arguments
     // except the first one. Ideally it should throw an error.
-    ns["list?"] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]
-        _, ok := x.(List)
+    ns["list?"] = proc(xs: ..MalType) -> MalType {
+        _, ok := xs[0].(List)
         return ok
     }
 
-    ns["prn"] = proc(xs: ..^MalType) -> MalType {
+    ns["prn"] = proc(xs: ..MalType) -> MalType {
         list: [dynamic]string
         for x in xs {
-            append(&list, reader.pr_str(x^))
+            append(&list, reader.pr_str(x))
         }
         fmt.println(strings.join(list[:], " ", allocator = context.temp_allocator))
         return Nil{}
     }
 
-    ns["println"] = proc(xs: ..^MalType) -> MalType {
+    ns["println"] = proc(xs: ..MalType) -> MalType {
         list: [dynamic]string
         for x in xs {
-            append(&list, reader.pr_str(x^, print_readably = false))
+            append(&list, reader.pr_str(x, print_readably = false))
         }
         fmt.println(strings.join(list[:], " ", allocator = context.temp_allocator))
         return Nil{}
     }
 
-    ns["pr-str"] = proc(xs: ..^MalType) -> MalType {
+    ns["pr-str"] = proc(xs: ..MalType) -> MalType {
         list: [dynamic]string
         for x in xs {
-            append(&list, reader.pr_str(x^))
+            append(&list, reader.pr_str(x))
         }
         return strings.join(list[:], " ")
     }
 
-    ns["str"] = proc(xs: ..^MalType) -> MalType {
+    ns["str"] = proc(xs: ..MalType) -> MalType {
         list: [dynamic]string
         for x in xs {
-            append(&list, reader.pr_str(x^, print_readably = false))
+            append(&list, reader.pr_str(x, print_readably = false))
         }
         return strings.concatenate(list[:])
     }
 
-    ns["read-string"] = proc(xs: ..^MalType) -> MalType {
+    ns["read-string"] = proc(xs: ..MalType) -> MalType {
         #partial switch x in xs[0] {
         case string:
             return reader.read_str(x) or_else nil
@@ -117,7 +121,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return nil
     }
 
-    ns["slurp"] = proc(xs: ..^MalType) -> MalType {
+    ns["slurp"] = proc(xs: ..MalType) -> MalType {
         #partial switch x in xs[0] {
         case string:
             buf, ok := os.read_entire_file_from_filename(x)
@@ -130,7 +134,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return nil
     }
 
-    ns["empty?"] = proc(xs: ..^MalType) -> MalType {
+    ns["empty?"] = proc(xs: ..MalType) -> MalType {
         #partial switch x in xs[0] {
         case List:
             return len(x) == 0
@@ -140,7 +144,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return Nil{}
     }
 
-    ns["count"] = proc(xs: ..^MalType) -> MalType {
+    ns["count"] = proc(xs: ..MalType) -> MalType {
         #partial switch x in xs[0] {
         case List:
             return len(x)
@@ -154,72 +158,71 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return Nil{}
     }
 
-    ns["="] = proc(xs: ..^MalType) -> MalType {
-        x_outer := xs[0]^
-        y_outer := xs[1]^
-
-        return is_equal(x_outer, y_outer)
+    ns["="] = proc(xs: ..MalType) -> MalType {
+        // TODO: make work with more than 2 args
+        return is_equal(xs[0], xs[1])
     }
 
-    ns["<"] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]^.(int)
-        y := xs[1]^.(int)
+    ns["<"] = proc(xs: ..MalType) -> MalType {
+        // TODO: make work with more than 2 args
+        x := xs[0].(int)
+        y := xs[1].(int)
         return x < y
     }
 
-    ns["<="] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]^.(int)
-        y := xs[1]^.(int)
+    ns["<="] = proc(xs: ..MalType) -> MalType {
+        // TODO: make work with more than 2 args
+        x := xs[0].(int)
+        y := xs[1].(int)
         return x <= y
     }
 
-    ns[">"] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]^.(int)
-        y := xs[1]^.(int)
+    ns[">"] = proc(xs: ..MalType) -> MalType {
+        // TODO: make work with more than 2 args
+        x := xs[0].(int)
+        y := xs[1].(int)
         return x > y
     }
 
-    ns[">="] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]^.(int)
-        y := xs[1]^.(int)
+    ns[">="] = proc(xs: ..MalType) -> MalType {
+        // TODO: make work with more than 2 args
+        x := xs[0].(int)
+        y := xs[1].(int)
         return x >= y
     }
 
-    ns["atom"] = proc(xs: ..^MalType) -> MalType {
-        return Atom(xs[0])
+    ns["atom"] = proc(xs: ..MalType) -> MalType {
+        return Atom(&xs[0])
     }
 
-    ns["atom?"] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]^
-        _, ok := x.(Atom)
+    ns["atom?"] = proc(xs: ..MalType) -> MalType {
+        _, ok := xs[0].(Atom)
         return ok
     }
 
-    ns["deref"] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]^
-        a := x.(Atom) or_else nil
+    ns["deref"] = proc(xs: ..MalType) -> MalType {
+        a := xs[0].(Atom) or_else nil
         return a^
     }
 
-    ns["reset!"] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]^
-        new_val := xs[1]^
-        a := x.(Atom) or_else nil
+    ns["reset!"] = proc(xs: ..MalType) -> MalType {
+        a := xs[0].(Atom) or_else nil
+        new_val := xs[1]
         a^ = new_val
         return a^
     }
 
-    ns["swap!"] = proc(xs: ..^MalType) -> MalType {
-        x := xs[0]^
-        a := x.(Atom) or_else nil
+    ns["swap!"] = proc(xs: ..MalType) -> MalType {
+        a := xs[0].(Atom) or_else nil
         f := xs[1]
 
         // Extract the function arguments
-        args: [dynamic]^MalType
-        append(&args, a)
+        args: [dynamic]MalType
+        defer delete(args)
+        append(&args, a^)
         append(&args, ..xs[2:])
 
-        res, ok := types.apply_ptrs(f, ..args[:])
+        res, ok := types.apply(f, ..args[:])
         a^ = res
         return a^
     }

@@ -38,7 +38,7 @@ pr_str :: proc(ast: MalType, print_readably := true) -> string {
         return pr_hash_map(t, print_readably)
     case Core_Fn:
         return "#<function>"
-    case Fn:
+    case Closure:
         return "#<function>"
     case Atom:
         return fmt.aprintf("(atom {:v})", t^)
