@@ -258,7 +258,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, ok: bool) {
         str := string(reader.str[t.loc.begin:t.loc.end + 1])
         switch str {
         case "nil":
-            return Nil{}, true
+            return nil, true
         case "true":
             return true, true
         case "false":

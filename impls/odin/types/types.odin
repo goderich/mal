@@ -1,10 +1,11 @@
 package types
 
 MalType :: union {
+    // nil is implied in Odin
+
     int,
     string,
     bool,
-    Nil,
     Symbol,
     Keyword,
 
@@ -20,7 +21,6 @@ MalType :: union {
 
 Symbol :: distinct string
 Keyword :: distinct string
-Nil :: struct {}
 
 List :: distinct []MalType
 Vector :: distinct []MalType

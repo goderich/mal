@@ -14,7 +14,6 @@ Vector :: types.Vector
 Symbol :: types.Symbol
 Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
-Nil :: types.Nil
 Core_Fn :: types.Core_Fn
 Closure :: types.Closure
 Atom :: types.Atom
@@ -27,7 +26,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             n, ok := x.(int)
             if !ok {
                 fmt.printfln("Error...")
-                return Nil{}
+                return nil
             }
             acc += n
         }
@@ -85,7 +84,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             append(&list, reader.pr_str(x))
         }
         fmt.println(strings.join(list[:], " ", allocator = context.temp_allocator))
-        return Nil{}
+        return nil
     }
 
     ns["println"] = proc(xs: ..MalType) -> MalType {
@@ -94,7 +93,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             append(&list, reader.pr_str(x, print_readably = false))
         }
         fmt.println(strings.join(list[:], " ", allocator = context.temp_allocator))
-        return Nil{}
+        return nil
     }
 
     ns["pr-str"] = proc(xs: ..MalType) -> MalType {
@@ -141,7 +140,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         case Vector:
             return len(x) == 0
         }
-        return Nil{}
+        return nil
     }
 
     ns["count"] = proc(xs: ..MalType) -> MalType {
@@ -152,10 +151,10 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             return len(x)
         case string:
             return len(x)
-        case Nil:
+        case nil:
             return 0
         }
-        return Nil{}
+        return nil
     }
 
     ns["="] = proc(xs: ..MalType) -> MalType {
@@ -232,6 +231,8 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
 is_equal :: proc(x_outer, y_outer: MalType) -> bool {
     #partial switch x in x_outer {
+    case nil:
+        return y_outer == nil
     case int:
         y, ok := y_outer.(int)
         return ok && x == y
@@ -241,9 +242,6 @@ is_equal :: proc(x_outer, y_outer: MalType) -> bool {
     case bool:
         y, ok := y_outer.(bool)
         return ok && x == y
-    case Nil:
-        _, ok := y_outer.(Nil)
-        return ok
     case Symbol:
         y, ok := y_outer.(Symbol)
         return ok && x == y
@@ -254,6 +252,7 @@ is_equal :: proc(x_outer, y_outer: MalType) -> bool {
         return is_equal_seqs(x, y_outer)
     case Vector:
         return is_equal_seqs(x, y_outer)
+    // TODO: Hash_Map equality?
     }
     return false
 }

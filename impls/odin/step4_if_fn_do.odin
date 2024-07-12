@@ -10,7 +10,6 @@ import "core"
 import "lib"
 
 MalType :: types.MalType
-Nil :: types.Nil
 List :: types.List
 Vector :: types.Vector
 Symbol :: types.Symbol
@@ -147,15 +146,11 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
 eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     cond := EVAL(ast[1], outer_env) or_return
     // If third element is missing, it defaults to nil
-    third:= ast[3] if len(ast) == 4 else MalType(Nil{})
+    third:= ast[3] if len(ast) == 4 else nil
 
-    #partial switch t in cond {
-    case Nil:
+    is_true, is_bool := cond.(bool)
+    if (is_bool && !is_true) || cond == nil {
         return EVAL(third, outer_env)
-    case bool:
-        if !t {
-            return EVAL(third, outer_env)
-        }
     }
     return EVAL(ast[2], outer_env)
 }

@@ -5,6 +5,8 @@ import "core:strings"
 
 pr_str :: proc(ast: MalType, print_readably := true) -> string {
     switch t in ast {
+    case nil:
+        return "nil"
     case int:
         sb := strings.builder_make()
         strings.write_int(&sb, t)
@@ -22,8 +24,6 @@ pr_str :: proc(ast: MalType, print_readably := true) -> string {
     case Keyword:
         s, _ := strings.replace(string(t), "ʞ", ":", 1)
         return string(s)
-    case Nil:
-        return "nil"
     case bool:
         if t {
             return "true"
