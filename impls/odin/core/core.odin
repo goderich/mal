@@ -64,10 +64,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
     ns["list"] = proc(xs: ..MalType) -> MalType {
         list: [dynamic]MalType
-        // TODO: no loop needed?
-        for x in xs {
-            append(&list, x)
-        }
+        append(&list, ..xs)
         return List(list[:])
     }
 
@@ -249,6 +246,20 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             }
         }
         return List(arr[:])
+    }
+
+    ns["vec"] = proc(xs: ..MalType) -> MalType {
+        vec: [dynamic]MalType
+        #partial switch t in xs[0] {
+        case List:
+            append(&vec, ..cast([]MalType)t)
+        case Vector:
+            return t
+        case:
+            fmt.println("Error: incorrect argument passed to function 'vec'.")
+            return nil
+        }
+        return Vector(vec[:])
     }
 
     return ns
