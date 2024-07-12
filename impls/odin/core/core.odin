@@ -226,6 +226,32 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return a^
     }
 
+
+    ns["cons"] = proc(xs: ..MalType) -> MalType {
+        arr: [dynamic]MalType
+        append(&arr, xs[0])
+        #partial switch t in xs[1] {
+            case List:
+            append(&arr, ..cast([]MalType)t)
+            case Vector:
+            append(&arr, ..cast([]MalType)t)
+        }
+        return List(arr[:])
+    }
+
+    ns["concat"] = proc(xs: ..MalType) -> MalType {
+        arr: [dynamic]MalType
+        for x in xs {
+            #partial switch t in x {
+                case List:
+                append(&arr, ..cast([]MalType)t)
+                case Vector:
+                append(&arr, ..cast([]MalType)t)
+            }
+        }
+        return List(arr[:])
+    }
+
     return ns
 }
 
