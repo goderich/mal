@@ -226,7 +226,6 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return a^
     }
 
-
     ns["cons"] = proc(xs: ..MalType) -> MalType {
         arr: [dynamic]MalType
         append(&arr, xs[0])

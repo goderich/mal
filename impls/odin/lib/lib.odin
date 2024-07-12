@@ -22,3 +22,11 @@ unpack_seq :: proc(seq: MalType) -> (arr: []MalType, ok: bool) {
     }
     return nil, false
 }
+
+concat :: proc(xs: ..MalType) -> [dynamic]MalType {
+    arr: [dynamic]MalType
+    for x in xs {
+        append(&arr, x)
+    }
+    return arr
+}

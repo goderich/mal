@@ -52,6 +52,13 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
                 ast = EVAL(body[1], env) or_return
                 env = outer_env
                 continue
+            case "quote":
+                return body[1], true
+            case "quasiquoteexpand":
+                return eval_quasiquote(body[1]), true
+            case "quasiquote":
+                ast = eval_quasiquote(body[1])
+                continue
             }
 
             // Normal function evaluation
@@ -199,6 +206,43 @@ eval_closure :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, ok: bool) {
 
     fn.ast = &ast[2]
     return fn, true
+}
+
+eval_quasiquote :: proc(ast: MalType) -> MalType {
+    #partial switch t in ast {
+    case Symbol:
+        arr := lib.concat(Symbol("quote"), t)
+        return List(arr[:])
+    case Hash_Map:
+        arr := lib.concat(Symbol("quote"), t)
+        return List(arr[:])
+    case List:
+        // Empty
+        if len(t) == 0 do return ast
+
+        // Unquote
+        if sym, ok := t[0].(Symbol); ok && sym == Symbol("unquote") {
+            return t[1]
+        }
+
+        // Not unquote
+        acc: [dynamic]MalType
+        #reverse for el in t {
+            // Splice unquote
+            if list, is_list := el.(List); is_list && len(list) > 1 {
+                sym_el, ok_el := list[0].(Symbol)
+                if ok_el && sym_el == Symbol("splice-unquote") {
+                    acc = lib.concat(Symbol("concat"), list[1], List(acc[:]))
+                    continue
+                }
+            }
+
+            // Not splice unquote
+            acc = lib.concat(Symbol("cons"), eval_quasiquote(el), List(acc[:]))
+        }
+        return List(acc[:])
+    }
+    return ast
 }
 
 create_env :: proc() -> ^Env {
