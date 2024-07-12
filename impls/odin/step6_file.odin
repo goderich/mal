@@ -63,10 +63,10 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
             // i.e. so that I can modify its contents.
             #partial switch &fn in evaled.(List)[0] {
                 case Core_Fn:
-                return apply_core_fn(fn, args)
+                return types.apply_core_fn(fn, args)
 
                 case Fn:
-                eval_closure(&fn, args)
+                types.eval_closure(&fn, args)
                 ast, env = fn.ast^, &fn.env
                 continue
 
@@ -200,37 +200,15 @@ eval_fn :: proc(ast: List, outer_env: ^Env) -> (fn: Fn, ok: bool) {
     // Create function environment
     fn.env = new(Env)^
     fn.env.outer = outer_env
+    fn.eval = _eval
 
     fn.ast = &ast[2]
     return fn, true
-}
 
-apply_core_fn :: proc(fn: Core_Fn, args: List) -> (res: MalType, ok: bool) {
-    // Extract arguments.
-    // These have to be pointers (see types/types.odin)
-    ptrs: [dynamic]^MalType
-    defer delete(ptrs)
-    for &elem in args {
-        append(&ptrs, &elem)
-    }
-
-    // Apply function and return the result.
-    return fn(..ptrs[:]), true
-}
-
-// Maps fn parameters to args and adds them to
-// the closure environment, so no return needed.
-eval_closure :: proc(fn: ^Fn, args: List) {
-    for i in 0..<len(fn.params) {
-        // "Rest" params with '&'
-        if fn.params[i] == "&" {
-            rest_params := fn.params[i+1]
-            rest_vals := args[i:]
-            types.env_set(&fn.env, rest_params, rest_vals)
-            break
-        }
-        // Regular args
-        types.env_set(&fn.env, fn.params[i], args[i])
+    // This is needed because Odin does not allow
+    // T to contain a proc that takes T as an argument.
+    _eval :: proc(input: ^MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
+        return EVAL(input^, outer_env)
     }
 }
 
