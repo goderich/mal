@@ -50,18 +50,22 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
             case "defmacro!":
                 return eval_defmacro(body, env)
             case "let*":
-                ast, env = eval_let(body, env) or_return
+                ast, env, ok = eval_let(body, env)
+                if !ok do return ast, false
                 continue
             case "do":
-                ast = eval_do(body, env) or_return
+                ast, ok = eval_do(body, env)
+                if !ok do return ast, false
                 continue
             case "if":
-                ast = eval_if(body, env) or_return
+                ast, ok = eval_if(body, env)
+                if !ok do return ast, false
                 continue
             case "fn*":
                 return eval_closure(body, env)
             case "eval":
-                ast = EVAL(body[1], env) or_return
+                ast, ok = EVAL(body[1], env)
+                if !ok do return ast, false
                 env = outer_env
                 continue
             case "quote":
@@ -72,18 +76,16 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
                 ast = eval_quasiquote(body[1])
                 continue
             case "macroexpand":
-                return macroexpand(body[1], env)
+                ast, ok = macroexpand(body[1], env)
+                if !ok do return string("Not a macro form."), false
+                return ast, true
             case "try*":
                 return try_catch(body, env)
             }
 
             // Normal function evaluation
             evaled, ok_evaled := eval_ast(body, env)
-            if !ok_evaled {
-                // DEBUG
-                fmt.println("evaled:", evaled)
-                return evaled, false
-            }
+            if !ok_evaled do return evaled, false
             args := evaled.(List)[1:]
             // Needs to be passed as `&fn` to get
             // addressable semantics (as suggested by the compiler),
@@ -187,9 +189,9 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (body: MalType, env: ^Env, ok: b
 
     // Unpacking list or vector, error handling
     to_list :: proc(ast: MalType) -> (res: []MalType, ok: bool) {
-        binds, binds_ok := lib.unpack_seq(ast)
+        binds, ok_binds := lib.unpack_seq(ast)
 
-        if !binds_ok {
+        if !ok_binds {
             fmt.println("Error: the second member of a let* expression must be a list or a vector.")
             return nil, false
         }
@@ -204,7 +206,8 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (body: MalType, env: ^Env, ok: b
 }
 
 eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
-    cond := EVAL(ast[1], outer_env) or_return
+    cond, ok_cond := EVAL(ast[1], outer_env)
+    if !ok_cond do return cond, false
     // If third element is missing, it defaults to nil
     third := ast[3] if len(ast) == 4 else nil
 
@@ -345,9 +348,9 @@ PRINT :: proc(ast: MalType) -> string {
 
 rep :: proc(s: string, env: ^Env) -> (p: string, ok: bool) {
     r := READ(s) or_return
-    e, eval_ok := EVAL(r, env)
+    e, ok_eval := EVAL(r, env)
     p = PRINT(e)
-    return p, eval_ok
+    return p, ok_eval
 }
 
 main :: proc() {
