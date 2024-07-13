@@ -277,13 +277,13 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         #partial switch t in xs[0] {
         case List:
             if len(t) <= i {
-                return nil, false
+                return string("Out of bounds!"), false
             } else {
                 return t[i], true
             }
         case Vector:
             if len(t) <= i {
-                return nil, false
+                return string("Out of bounds!"), false
             } else {
                 return t[i], true
             }
@@ -308,6 +308,10 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             return nil, false
         }
         return List(acc[:]), true
+    }
+
+    ns["throw"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        return xs[0], false
     }
 
     return ns
