@@ -39,7 +39,7 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
                 if list, is_list := expanded.(List); is_list {
                     body = list
                 } else {
-                    return eval_ast(body, env)
+                    return eval_ast(expanded, env)
                 }
             }
 
@@ -151,6 +151,7 @@ eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     return types.env_get(outer_env, sym)
 }
 
+// Very similar to `eval_def` except for the is_macro flag
 eval_defmacro :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     sym := ast[1].(Symbol) or_return
     fn := eval_closure(ast[2].(List), outer_env) or_return
@@ -278,8 +279,8 @@ eval_quasiquote :: proc(ast: MalType) -> MalType {
 }
 
 macroexpand :: proc(ast: MalType, env: ^Env) -> (res: MalType, ok: bool) {
-    // Shadow fn parameters to allow mutation
-    ast, env := ast, env
+    // Shadow fn parameter to allow mutation
+    ast := ast
 
     // Expand as long as the first element is a macro
     fn, is_macro := get_macro_fn(ast, env)
