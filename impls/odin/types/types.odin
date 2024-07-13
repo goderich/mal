@@ -34,6 +34,7 @@ Closure :: struct {
     ast: ^MalType,
     env: Env,
     eval: proc(MalType, ^Env) -> (MalType, bool),
+    is_macro: bool,
 }
 
 Atom :: ^MalType
