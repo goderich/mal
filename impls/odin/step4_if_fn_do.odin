@@ -185,7 +185,12 @@ apply_fn :: proc(list: List) -> (res: MalType, ok: bool) {
     if !f_ok do return apply_closure(list)
 
     // Apply function and return the result.
-    return f(..cast([]MalType)list[1:]), true
+    res, ok = f(..cast([]MalType)list[1:])
+    if !ok {
+        fmt.println("Exception!")
+        return nil, false
+    }
+    return res, true
 }
 
 apply_closure :: proc(list: List) -> (res: MalType, ok: bool) {

@@ -62,7 +62,12 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
             // i.e. so that I can modify its contents.
             #partial switch &fn in evaled.(List)[0] {
                 case Core_Fn:
-                return fn(..cast([]MalType)args), true
+                ast, ok = fn(..cast([]MalType)args)
+                if !ok {
+                    fmt.println("Exception!")
+                    return nil, false
+                }
+                return ast, true
 
                 case Closure:
                 types.eval_closure(&fn, args)

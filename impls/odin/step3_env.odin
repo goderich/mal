@@ -143,7 +143,12 @@ apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, ok: bool) {
         }
 
     // Apply function and return the result.
-    return f(..cast([]MalType)ast[1:]), true
+    res, ok = f(..cast([]MalType)ast[1:])
+    if !ok {
+        fmt.println("Exception!")
+        return nil, false
+    }
+    return res, true
 }
 
 create_env :: proc() -> (repl_env: Env) {
