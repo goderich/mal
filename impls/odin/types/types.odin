@@ -27,7 +27,7 @@ Vector :: distinct []MalType
 // Odin does not allow MalType to be a key, but a pointer to it works.
 Hash_Map :: map[^MalType]MalType
 
-Core_Fn :: proc(..MalType) -> MalType
+Core_Fn :: proc(..MalType) -> (MalType, bool)
 
 Closure :: struct {
     params: [dynamic]Symbol,

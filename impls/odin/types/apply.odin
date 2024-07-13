@@ -10,7 +10,7 @@ package types
 apply :: proc(farg: MalType, args: ..MalType) -> (res: MalType, ok: bool) {
     #partial switch &fn in farg {
     case Core_Fn:
-        return fn(..args), true
+        return fn(..args)
     case Closure:
         eval_closure(&fn, List(args))
         return fn.eval(fn.ast^, &fn.env)
