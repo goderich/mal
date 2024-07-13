@@ -262,6 +262,54 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return Vector(vec[:])
     }
 
+    ns["first"] = proc(xs: ..MalType) -> (fst: MalType) {
+        #partial switch t in xs[0] {
+        case List:
+            if len(t) > 0 do fst = t[0]
+        case Vector:
+            if len(t) > 0 do fst = t[0]
+        }
+        return fst
+    }
+
+    ns["nth"] = proc(xs: ..MalType) -> MalType {
+        i := xs[1].(int)
+        #partial switch t in xs[0] {
+        case List:
+            if len(t) <= i {
+                return nil
+            } else {
+                return t[i]
+            }
+        case Vector:
+            if len(t) <= i {
+                return nil
+            } else {
+                return t[i]
+            }
+        }
+        return nil
+    }
+
+    ns["rest"] = proc(xs: ..MalType) -> (fst: MalType) {
+        acc: [dynamic]MalType
+        #partial switch t in xs[0] {
+        case List:
+            if len(t) > 0 {
+                for el in t[1:] do append(&acc, el)
+            }
+        case Vector:
+            if len(t) > 0 {
+                for el in t[1:] do append(&acc, el)
+            }
+        case nil:
+            break
+        case:
+            return nil
+        }
+        return List(acc[:])
+    }
+
     return ns
 }
 
