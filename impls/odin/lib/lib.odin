@@ -30,3 +30,11 @@ concat :: proc(xs: ..MalType) -> [dynamic]MalType {
     }
     return arr
 }
+
+copy_map :: proc(m: Hash_Map) -> Hash_Map {
+    res := new(Hash_Map)
+    for k, v in m {
+        res[k] = v
+    }
+    return res^
+}

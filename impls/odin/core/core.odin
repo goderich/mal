@@ -27,6 +27,46 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return is_equal(xs[0], xs[1]), true
     }
 
+    ns["nil?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        return xs[0] == nil, true
+    }
+
+    ns["true?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        bl, is_bl := xs[0].(bool)
+        return is_bl && bl, true
+    }
+
+    ns["false?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        bl, is_bl := xs[0].(bool)
+        return is_bl && !bl, true
+    }
+
+    ns["symbol"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        str, is_str := xs[0].(string)
+        if !is_str {
+            return string("Argument must be a string."), false
+        }
+        return Symbol(strings.clone(str)), true
+    }
+
+    ns["symbol?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        _, is_sym := xs[0].(Symbol)
+        return is_sym, true
+    }
+
+    ns["keyword"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        str, is_str := xs[0].(string)
+        if !is_str {
+            return string("Argument must be a string."), false
+        }
+        return Keyword(fmt.aprintf("ʞ{:s}", str)), true
+    }
+
+    ns["keyword?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        _, is_kw := xs[0].(Keyword)
+        return is_kw, true
+    }
+
     // Printing and reading
 
     ns["prn"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -171,7 +211,116 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return is_list, true
     }
 
+    ns["vector"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        list: [dynamic]MalType
+        append(&list, ..xs)
+        return Vector(list[:]), true
+    }
+
+    ns["vector?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        _, is_vec := xs[0].(Vector)
+        return is_vec, true
+    }
+
+    ns["vector"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        list: [dynamic]MalType
+        append(&list, ..xs)
+        return Vector(list[:]), true
+    }
+
+    ns["hash-map"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        if len(xs) % 2 != 0 {
+            return string("Uneven number of arguments."), false
+        }
+
+        m := make(Hash_Map)
+        for i := 0; i < len(xs); i += 2 {
+            insert_in_map(&m, xs[i], xs[i+1])
+        }
+        return m, true
+    }
+
+    ns["map?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        _, is_map := xs[0].(Hash_Map)
+        return is_map, true
+    }
+
+    ns["assoc"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        // Needs to be odd because the first arg is the map itself.
+        if len(xs) % 2 == 0 {
+            return string("Uneven number of arguments after the map."), false
+        }
+
+        old_map := xs[0].(Hash_Map) or_return
+        m := lib.copy_map(old_map)
+        for i := 1; i < len(xs); i += 2 {
+            insert_in_map(&m, xs[i], xs[i+1])
+        }
+        return m, true
+    }
+
+    ns["dissoc"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        old_map := xs[0].(Hash_Map) or_return
+        m := lib.copy_map(old_map)
+        for k in xs[1:] {
+            k_ptr, in_map := key_in_map(&m, k)
+            if in_map {
+                delete_key(&m, k_ptr)
+            }
+        }
+        return m, true
+    }
+
+    ns["get"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        #partial switch &m in xs[0] {
+            case Hash_Map:
+            k_ptr, in_map := key_in_map(&m, xs[1])
+            if in_map {
+                return m[k_ptr], true
+            } else {
+                return nil, true
+            }
+            case nil:
+            return nil, true
+        }
+        return string("Invalid type"), false
+    }
+
+    ns["contains?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        m := xs[0].(Hash_Map)
+        _, in_map := key_in_map(&m, xs[1])
+        return in_map, true
+    }
+
+    ns["keys"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        acc: [dynamic]MalType
+        m := xs[0].(Hash_Map)
+        for k in m {
+            append(&acc, k^)
+        }
+        return List(acc[:]), true
+    }
+
+    ns["vals"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        acc: [dynamic]MalType
+        m := xs[0].(Hash_Map)
+        for _, v in m {
+            append(&acc, v)
+        }
+        return List(acc[:]), true
+    }
+
     // Sequences
+
+    ns["sequential?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        #partial switch x in xs[0] {
+        case List:
+            return true, true
+        case Vector:
+            return true, true
+        }
+        return false, true
+    }
 
     ns["empty?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         #partial switch x in xs[0] {
@@ -394,7 +543,9 @@ is_equal :: proc(x_outer, y_outer: MalType) -> bool {
         return is_equal_seqs(x, y_outer)
     case Vector:
         return is_equal_seqs(x, y_outer)
-    // TODO: Hash_Map equality?
+    case Hash_Map:
+        y, ok := y_outer.(Hash_Map)
+        return ok && is_equal_maps(x, y)
     }
     return false
 }
@@ -409,4 +560,45 @@ is_equal_seqs :: proc(x_outer, y_outer: MalType) -> bool {
         if !is_equal(xs[i], ys[i]) do return false
     }
     return true
+}
+
+is_equal_maps :: proc(m1, m2: Hash_Map) -> bool {
+    m2 := m2 // shadowing m2 to pass to key_in_map
+    if len(m1) != len(m2) do return false
+
+    for key, val in m1 {
+        k_ptr, in_m2 := key_in_map(&m2, key^)
+        if !in_m2 do return false
+        if !(is_equal(val, m2[k_ptr])) do return false
+    }
+
+    return true
+}
+
+// Equality test for pointers to MalType values
+is_equal_ptrs :: proc(x, y: ^MalType) -> bool {
+    return is_equal(x^, y^)
+}
+
+key_in_map :: proc(m: ^Hash_Map, key: MalType) -> (k_ptr: ^MalType, ok: bool) {
+    for k in m {
+        if is_equal(k^, key) do return k, true
+    }
+    return nil, false
+}
+
+// Insert value of a key into a map destructively,
+// replacing any existing value
+insert_in_map :: proc(m: ^Hash_Map, key: MalType, val: MalType) {
+    // Check if key is already in map
+    // This needs to be done manually,
+    // because Hash_Map currently stores pointers as keys.
+    k_ptr, in_map := key_in_map(m, key)
+
+    if in_map {
+        m[k_ptr] = val
+    } else {
+        k := new_clone(key)
+        m[k] = val
+    }
 }
