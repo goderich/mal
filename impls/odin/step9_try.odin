@@ -321,7 +321,12 @@ try_catch :: proc(ast: List, env: ^Env) -> (res: MalType, ok: bool) {
     if ok_A do return res_A, true
 
     // If A throws an exception:
-    catch_block := ast[2].(List) or_return
+
+    // If a catch block is not present, return exception:
+    if len(ast) < 3 do return res_A, false
+
+    // If there is a catch block, eval that:
+    catch_block, ok_block := ast[2].(List)
     // Bind exception in A to symbol B
     sym := catch_block[1].(Symbol) or_return
     types.env_set(env, sym, res_A)
