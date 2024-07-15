@@ -132,10 +132,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         acc := 0
         for x in xs {
             n, ok := x.(int)
-            if !ok {
-                fmt.printfln("Error...")
-                return nil, false
-            }
+            if !ok do return raise("Not an integer.")
             acc += n
         }
         return acc, true
@@ -144,7 +141,8 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     ns["*"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         acc := 1
         for x in xs {
-            n := x.(int)
+            n, ok := x.(int)
+            if !ok do return raise("Not an integer.")
             acc *= n
         }
         return acc, true
@@ -154,7 +152,8 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         acc := xs[0].(int)
         rest := xs[1:]
         for x in rest {
-            n := x.(int)
+            n, ok := x.(int)
+            if !ok do return raise("Not an integer.")
             acc -= n
         }
         return acc, true
@@ -164,7 +163,9 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         acc := xs[0].(int)
         rest := xs[1:]
         for x in rest {
-            n := x.(int)
+            n, ok := x.(int)
+            if !ok do return raise("Not an integer.")
+            if n == 0 do return raise("Divide by zero.")
             acc /= n
         }
         return acc, true
@@ -232,7 +233,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
     ns["hash-map"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         if len(xs) % 2 != 0 {
-            return string("Uneven number of arguments."), false
+            return raise("Uneven number of arguments.")
         }
 
         m := make(Hash_Map)
@@ -250,7 +251,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     ns["assoc"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         // Needs to be odd because the first arg is the map itself.
         if len(xs) % 2 == 0 {
-            return string("Uneven number of arguments after the map."), false
+            return raise("Uneven number of arguments after the map.")
         }
 
         old_map := xs[0].(Hash_Map) or_return
@@ -285,7 +286,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             case nil:
             return nil, true
         }
-        return string("Invalid type"), false
+        return raise("Invalid type")
     }
 
     ns["contains?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -381,8 +382,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         case Vector:
             return t, true
         case:
-            fmt.println("Error: incorrect argument passed to function 'vec'.")
-            return nil, false
+            return raise("Error: incorrect argument passed to function 'vec'.")
         }
         return Vector(vec[:]), true
     }
@@ -399,21 +399,14 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
     ns["nth"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         i := xs[1].(int)
-        #partial switch t in xs[0] {
-        case List:
-            if len(t) <= i {
-                return string("Out of bounds!"), false
-            } else {
-                return t[i], true
-            }
-        case Vector:
-            if len(t) <= i {
-                return string("Out of bounds!"), false
-            } else {
-                return t[i], true
-            }
+        seq, is_seq := lib.unpack_seq(xs[0])
+        if !is_seq do return raise("Argument must be a sequence.")
+
+        if len(seq) <= i {
+            return raise("Out of bounds!")
+        } else {
+            return seq[i], true
         }
-        return nil, false
     }
 
     ns["rest"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -443,27 +436,18 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             append(&args, xs[i])
         }
         // Unpack final arg list/vector
-        #partial switch list in xs[len(xs)-1] {
-            case List:
-            append(&args, ..cast([]MalType)list)
-            case Vector:
-            append(&args, ..cast([]MalType)list)
-            case:
-            return string("Final argument must be a list or a vector"), false
-        }
+        seq, is_seq := lib.unpack_seq(xs[len(xs)-1])
+        if !is_seq do return raise("Final argument must be a list or a vector")
+        append(&args, ..seq)
 
         return types.apply(fn, ..args[:])
     }
 
     ns["map"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         fn := xs[0]
-        #partial switch list in xs[1] {
-            case List:
-            return _map(fn, cast([]MalType)list)
-            case Vector:
-            return _map(fn, cast([]MalType)list)
-        }
-        return string("Second argument to map must be a list or a vector."), false
+        seq, is_seq := lib.unpack_seq(xs[1])
+        if !is_seq do return raise("Second argument to map must be a list or a vector")
+        return _map(fn, seq)
 
         _map :: proc(fn: MalType, args: []MalType) -> (res: MalType, ok: bool) {
             acc: [dynamic]MalType
@@ -578,11 +562,6 @@ is_equal_maps :: proc(m1, m2: Hash_Map) -> bool {
     return true
 }
 
-// Equality test for pointers to MalType values
-is_equal_ptrs :: proc(x, y: ^MalType) -> bool {
-    return is_equal(x^, y^)
-}
-
 key_in_map :: proc(m: ^Hash_Map, key: MalType) -> (k_ptr: ^MalType, ok: bool) {
     for k in m {
         if is_equal(k^, key) do return k, true
@@ -604,4 +583,9 @@ insert_in_map :: proc(m: ^Hash_Map, key: MalType, val: MalType) {
         k := new_clone(key)
         m[k] = val
     }
+}
+
+// Raise an exception
+raise :: proc(str: string) -> (MalType, bool) {
+    return str, false
 }
