@@ -468,7 +468,8 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         _map :: proc(fn: MalType, args: []MalType) -> (res: MalType, ok: bool) {
             acc: [dynamic]MalType
             for arg in args {
-                new_arg := types.apply(fn, arg) or_return
+                new_arg, ok_arg := types.apply(fn, arg)
+                if !ok_arg do return new_arg, false
                 append(&acc, new_arg)
             }
             return List(acc[:]), true
