@@ -55,11 +55,13 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     }
 
     ns["keyword"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
-        str, is_str := xs[0].(string)
-        if !is_str {
-            return string("Argument must be a string."), false
+        #partial switch arg in xs[0] {
+        case string:
+            return Keyword(fmt.aprintf("ʞ{:s}", arg)), true
+        case Keyword:
+            return arg, true
         }
-        return Keyword(fmt.aprintf("ʞ{:s}", str)), true
+        return string("Argument must be a string or a keyword."), false
     }
 
     ns["keyword?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
