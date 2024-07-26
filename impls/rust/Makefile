@@ -2,12 +2,16 @@ STEPS = step0_repl step1_read_print step2_eval step3_env step4_if_fn_do step5_tc
 
 all: $(STEPS)
 
-$(STEPS): %: %.rs
+$(STEPS): %: src/%.rs
+	rm -f $@
 	cargo build --release --bin $@
 	mv ../../target/release/$@ $@
 
 .PHONY: clean
 
 clean:
+	rm -f $(STEPS)
+
+veryclean:
 	cargo clean
 	rm -f $(STEPS)
