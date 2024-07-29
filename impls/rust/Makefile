@@ -7,7 +7,7 @@ $(STEPS): %: src/%.rs
 	cargo build --release --bin $@
 	mv ../../target/release/$@ $@
 
-.PHONY: clean
+.PHONY: clean all $(STEPS)
 
 clean:
 	rm -f $(STEPS)

@@ -18,7 +18,7 @@ fn eval(input: MalType) -> MalType {
 }
 
 fn print(input: MalType) -> String {
-    pr_str(&input)
+    pr_str(&input, true)
 }
 
 fn rep(s: String) -> Result<String, ReaderError> {
@@ -39,11 +39,11 @@ fn main() {
                 }
                 match rep(input) {
                     Ok(str) => println!("{}", str),
-                    Err(_) => println!("error"),
+                    Err(e) => println!("Reader error: {:?}", e),
                 }
             }
 
-            Err(error) => println!("error: {error}"),
+            Err(_) => println!("Readline error."),
         }
     }
 }
