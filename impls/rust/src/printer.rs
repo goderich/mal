@@ -1,6 +1,6 @@
 use itertools::{intersperse, Itertools};
 
-use crate::types::MalType::{self, Bool, Int, List, Nil, Str, Symbol, Vector};
+use crate::types::MalType::{self, Bool, Int, Keyword, List, Nil, Str, Symbol, Vector};
 
 pub fn pr_str(input: &MalType, print_readably: bool) -> String {
     match input {
@@ -8,11 +8,12 @@ pub fn pr_str(input: &MalType, print_readably: bool) -> String {
         Int(n) => n.to_string(),
         Bool(b) => b.to_string(),
         Symbol(s) => s.clone(),
+        Keyword(s) => pr_keyword(s),
         Str(s) => {
             if print_readably {
-                print_string_readably(s)
+                pr_string_readably(s)
             } else {
-                print_string_unreadably(s)
+                pr_string_unreadably(s)
             }
         }
         List(list) => pr_list(list),
@@ -20,7 +21,7 @@ pub fn pr_str(input: &MalType, print_readably: bool) -> String {
     }
 }
 
-fn print_string_readably(input: &String) -> String {
+fn pr_string_readably(input: &String) -> String {
     let mut s = String::new();
     s.push('"');
     for c in input.chars() {
@@ -35,11 +36,18 @@ fn print_string_readably(input: &String) -> String {
     s
 }
 
-fn print_string_unreadably(input: &String) -> String {
+fn pr_string_unreadably(input: &String) -> String {
     let mut s = String::new();
     s.push('"');
     s.push_str(input);
     s.push('"');
+    s
+}
+
+fn pr_keyword(input: &String) -> String {
+    let mut s = String::new();
+    s.push(':');
+    s.push_str(input);
     s
 }
 

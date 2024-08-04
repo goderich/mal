@@ -5,6 +5,7 @@ pub enum MalType {
     Int(i64),
     Str(String),
     Symbol(String),
+    Keyword(String),
     List(Vec<MalType>),
     Vector(Vec<MalType>),
 }

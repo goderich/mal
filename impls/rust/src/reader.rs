@@ -1,14 +1,11 @@
-use std::result;
-
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_while1},
     character::complete::{char, i64, one_of},
     combinator::{cut, map, value},
-    error::{convert_error, Error, ParseError},
     multi::{fold_many0, many0},
     sequence::{delimited, preceded, terminated},
-    Err, IResult, Parser,
+    IResult, Parser,
 };
 
 use crate::types::MalType;
@@ -27,6 +24,10 @@ fn form_parser(input: &str) -> IResult<&str, MalType> {
     alt((
         preceded(char('('), cut(list_parser)),
         preceded(char('['), cut(vector_parser)),
+        quote_parser,
+        quasiquote_parser,
+        splice_unquote_parser,
+        unquote_parser,
         atom_parser,
     ))(input)
 }
@@ -38,8 +39,33 @@ fn atom_parser(input: &str) -> IResult<&str, MalType> {
         false_parser,
         int_parser,
         preceded(char('"'), cut(string_parser)),
+        keyword_parser,
         symbol_parser,
     ))(input)
+}
+
+fn quote_parser(input: &str) -> IResult<&str, MalType> {
+    let (rest, inner) = preceded(char('\''), form_parser).parse(input)?;
+    let sym = MalType::Symbol(String::from("quote"));
+    Ok((rest, MalType::List(vec![sym, inner])))
+}
+
+fn quasiquote_parser(input: &str) -> IResult<&str, MalType> {
+    let (rest, inner) = preceded(char('`'), form_parser).parse(input)?;
+    let sym = MalType::Symbol(String::from("quasiquote"));
+    Ok((rest, MalType::List(vec![sym, inner])))
+}
+
+fn unquote_parser(input: &str) -> IResult<&str, MalType> {
+    let (rest, inner) = preceded(char('~'), form_parser).parse(input)?;
+    let sym = MalType::Symbol(String::from("unquote"));
+    Ok((rest, MalType::List(vec![sym, inner])))
+}
+
+fn splice_unquote_parser(input: &str) -> IResult<&str, MalType> {
+    let (rest, inner) = preceded(tag("~@"), form_parser).parse(input)?;
+    let sym = MalType::Symbol(String::from("splice-unquote"));
+    Ok((rest, MalType::List(vec![sym, inner])))
 }
 
 fn nil_parser(input: &str) -> IResult<&str, MalType> {
@@ -60,6 +86,11 @@ fn false_parser(input: &str) -> IResult<&str, MalType> {
 fn symbol_parser(input: &str) -> IResult<&str, MalType> {
     let (rest, output) = symbol_name_parser(input)?;
     Ok((rest, MalType::Symbol(output.to_string())))
+}
+
+fn keyword_parser(input: &str) -> IResult<&str, MalType> {
+    let (rest, output) = preceded(char(':'), symbol_name_parser).parse(input)?;
+    Ok((rest, MalType::Keyword(output.to_string())))
 }
 
 fn int_parser(input: &str) -> IResult<&str, MalType> {
@@ -115,6 +146,10 @@ fn symbol_name_parser(input: &str) -> IResult<&str, &str> {
     })(input)
 }
 
+fn whitespace(input: &str) -> IResult<&str, ()> {
+    value((), one_of(" \t\n\r,"))(input)
+}
+
 // Strings with escaped chars are quite involved in nom
 
 enum StringParser<'a> {
@@ -163,8 +198,4 @@ fn escaped_char_parser(input: &str) -> IResult<&str, char> {
         )),
     )
     .parse(input)
-}
-
-fn whitespace(input: &str) -> IResult<&str, ()> {
-    value((), one_of(" \t\n\r,"))(input)
 }
