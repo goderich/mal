@@ -26,9 +26,9 @@ fn pr_string_readably(input: &String) -> String {
     s.push('"');
     for c in input.chars() {
         match c {
-            '\\' => s.push_str("\\\\"),
-            '\n' => s.push_str("\\n"),
-            '\"' => s.push_str("\\\""),
+            '\\' => s += "\\\\",
+            '\n' => s += "\\n",
+            '\"' => s += "\\\"",
             _ => s.push(c),
         }
     }
@@ -39,7 +39,7 @@ fn pr_string_readably(input: &String) -> String {
 fn pr_string_unreadably(input: &String) -> String {
     let mut s = String::new();
     s.push('"');
-    s.push_str(input);
+    s += input;
     s.push('"');
     s
 }
@@ -47,7 +47,7 @@ fn pr_string_unreadably(input: &String) -> String {
 fn pr_keyword(input: &String) -> String {
     let mut s = String::new();
     s.push(':');
-    s.push_str(input);
+    s += input;
     s
 }
 
@@ -59,7 +59,7 @@ fn pr_list(list: &Vec<MalType>) -> String {
     list.iter()
         .map(|x| pr_str(x, true))
         .intersperse(" ".to_string())
-        .for_each(|s: String| str.push_str(&s));
+        .for_each(|s: String| str += &s);
     str.push(')');
     str
 }
@@ -71,7 +71,7 @@ fn pr_vector(list: &Vec<MalType>) -> String {
     list.iter()
         .map(|x| pr_str(x, true))
         .intersperse(" ".to_string())
-        .for_each(|s: String| str.push_str(&s));
+        .for_each(|s: String| str += &s);
     str.push(']');
     str
 }
