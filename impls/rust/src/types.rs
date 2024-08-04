@@ -6,4 +6,5 @@ pub enum MalType {
     Str(String),
     Symbol(String),
     List(Vec<MalType>),
+    Vector(Vec<MalType>),
 }

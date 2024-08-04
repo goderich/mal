@@ -39,7 +39,7 @@ fn main() {
                 }
                 match rep(input) {
                     Ok(str) => println!("{}", str),
-                    Err(e) => println!("Reader error: {:?}", e),
+                    _ => continue,
                 }
             }
 
