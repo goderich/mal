@@ -272,54 +272,64 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, ok: bool) {
     case .STRING:
         return read_string(reader.str[t.loc.begin:t.loc.end + 1])
     case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-        fmt.println("Error: unbalanced parentheses.")
-        return nil, false
+        return string("unbalanced parentheses"), false
     case .LEFT_PAREN, .LEFT_SQUARE, .LEFT_CURLY:
-        fmt.println("Error: unbalanced parentheses.")
-        return nil, false
+        return string("unbalanced parentheses"), false
     case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF, .META:
-        fmt.println("Error: unexpected reader macro.")
-        return nil, false
+        return string("unexpected reader macro."), false
     case .END:
-        fmt.println("Error: unbalanced parentheses.")
-        return nil, false
+        return nil, true
     }
     return
 }
 
-read_list :: proc(reader: ^Reader, until := Tag.RIGHT_PAREN) -> (elems: List, ok: bool) {
+read_list :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
     list: [dynamic]MalType
     for {
         t := next_token(&reader.tokenizer)
 
         #partial switch t.tag {
         case .END:
-            fmt.println("Error: unbalanced parentheses.")
-            return nil, false
-        case until:
+            return string("unbalanced parentheses"), false
+        case .RIGHT_PAREN:
             return List(list[:]), true
-        case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-            fmt.println("Error: unbalanced parentheses.")
-            return nil, false
+        case .RIGHT_SQUARE, .RIGHT_CURLY:
+            return string("unbalanced parentheses"), false
         case:
-            f := read_token(reader, t) or_return
-            append(&list, f)
+            form, success := read_token(reader, t)
+            if !success do return form, false
+            append(&list, form)
         }
     }
 }
 
-read_vector :: proc(reader: ^Reader) -> (v: Vector, ok: bool) {
-    list := read_list(reader, Tag.RIGHT_SQUARE) or_return
-    return Vector(list), true
+read_vector :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
+    list: [dynamic]MalType
+    for {
+        t := next_token(&reader.tokenizer)
+
+        #partial switch t.tag {
+        case .END:
+            return string("unbalanced parentheses"), false
+        case .RIGHT_SQUARE:
+            return Vector(list[:]), true
+        case .RIGHT_PAREN, .RIGHT_CURLY:
+            return string("unbalanced parentheses"), false
+        case:
+            form, success := read_token(reader, t)
+            if !success do return form, false
+            append(&list, form)
+        }
+    }
 }
 
-read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, ok: bool) {
+read_hash_map :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
+    m: Hash_Map
     for {
         t := next_token(&reader.tokenizer)
         #partial switch t.tag {
         case .END, .RIGHT_PAREN, .RIGHT_SQUARE:
-            fmt.println("Error: unbalanced parentheses.")
-            return nil, false
+            return string("unbalanced parentheses."), false
         case .RIGHT_CURLY:
             return m, true
         }
@@ -331,8 +341,7 @@ read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, ok: bool) {
         t2 := next_token(&reader.tokenizer)
         #partial switch t.tag {
         case .END, .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-            fmt.println("Error: unbalanced parentheses.")
-            return nil, false
+            return string("unbalanced parentheses."), false
         }
         v := read_token(reader, t2) or_return
 
@@ -340,18 +349,16 @@ read_hash_map :: proc(reader: ^Reader) -> (m: Hash_Map, ok: bool) {
     }
 }
 
-read_string :: proc(s: string) -> (res: string, ok: bool) {
+read_string :: proc(s: string) -> (res: MalType, ok: bool) {
     if len(s) < 2 || s[len(s) - 1] != '"' {
-        fmt.println("Error: unbalanced quotes.")
-        return "", false
+        return string("unbalanced quotes."), false
     }
     sb := strings.builder_make()
 
     for i := 1; i < len(s) - 1; i += 1 {
         if rune(s[i]) == '\\' {
             if i == len(s) - 2 {
-                fmt.println("Error: unbalanced quotes.")
-                return "", false
+                return string("unbalanced quotes."), false
             }
             switch rune(s[i+1]) {
             case '\\':
@@ -390,11 +397,10 @@ read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, ok: bool) {
     return List(list[:]), true
 }
 
-read_metadata :: proc(reader: ^Reader) -> (ast: List, ok: bool) {
+read_metadata :: proc(reader: ^Reader) -> (ast: MalType, ok: bool) {
     list: [dynamic]MalType
     if next_token(&reader.tokenizer).tag != .LEFT_CURLY {
-        fmt.println("Error: read metadata error.")
-        return nil, false
+        return string("read metadata error."), false
     }
     m := read_hash_map(reader) or_return
     data := read_form(reader) or_return

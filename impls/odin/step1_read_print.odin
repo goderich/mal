@@ -19,10 +19,10 @@ PRINT :: proc(ast: reader.MalType) -> string {
 }
 
 rep :: proc(s: string) -> (p: string, ok: bool) {
-    r := READ(s) or_return
+    r, ok_read := READ(s)
+    if !ok_read do return r.(string), false
     e := EVAL(r)
-    p = PRINT(e)
-    return p, true
+    return PRINT(e), true
 }
 
 main :: proc() {
@@ -51,6 +51,8 @@ main :: proc() {
 
         if r, ok := rep(input); ok {
             fmt.println(r)
+        } else {
+            fmt.println("Exception:", r)
         }
     }
 }
