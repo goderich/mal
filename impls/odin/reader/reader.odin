@@ -245,10 +245,6 @@ read_token :: proc(reader: ^Reader, t: Token) -> (ast: MalType, ok: bool) {
     }
 }
 
-is_empty_token :: proc(t: Token) -> bool {
-    return t == Token{}
-}
-
 read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, ok: bool) {
     switch t.tag {
     case .NUMBER:
@@ -285,6 +281,7 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, ok: bool) {
 
 read_list :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
     list: [dynamic]MalType
+    defer delete(list)
     for {
         t := next_token(&reader.tokenizer)
 
@@ -305,6 +302,7 @@ read_list :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
 
 read_vector :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
     list: [dynamic]MalType
+    defer delete(list)
     for {
         t := next_token(&reader.tokenizer)
 
@@ -399,6 +397,7 @@ read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, ok: bool) {
 
 read_metadata :: proc(reader: ^Reader) -> (ast: MalType, ok: bool) {
     list: [dynamic]MalType
+    defer delete(list)
     if next_token(&reader.tokenizer).tag != .LEFT_CURLY {
         return string("read metadata error."), false
     }

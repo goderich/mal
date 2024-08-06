@@ -290,7 +290,7 @@ eval_quasiquote :: proc(ast: MalType) -> MalType {
     }
 }
 
-macroexpand :: proc(ast: MalType, env: ^Env) -> (res: MalType, ok: bool) {
+macroexpand :: proc(ast: MalType, env: ^Env) -> (res: MalType, expanded: bool) {
     // Shadow fn parameter to allow mutation
     ast := ast
 
@@ -351,11 +351,11 @@ PRINT :: proc(ast: MalType) -> string {
     return reader.pr_str(ast)
 }
 
-rep :: proc(s: string, env: ^Env) -> (p: string, ok: bool) {
-    r := READ(s) or_return
+rep :: proc(s: string, env: ^Env) -> (string, bool) {
+    r, ok_read := READ(s)
+    if !ok_read do return r.(string), false
     e, ok_eval := EVAL(r, env)
-    p = PRINT(e)
-    return p, ok_eval
+    return PRINT(e), ok_eval
 }
 
 main :: proc() {
