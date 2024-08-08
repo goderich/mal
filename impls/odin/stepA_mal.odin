@@ -155,7 +155,8 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
 eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     sym := ast[1].(Symbol)
     // Evaluate the expression to get symbol value
-    val := EVAL(ast[2], outer_env) or_return
+    val, ok_val := EVAL(ast[2], outer_env)
+    if !ok_val do return val, false
     // Set environment variable
     types.env_set(outer_env, sym, val)
     // Retrieve variable
@@ -180,7 +181,8 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (body: MalType, env: ^Env, ok: b
     // Iterate over pairs, adding bindings to the environment.
     for i := 0; i < len(bindings); i += 2 {
         name := bindings[i].(Symbol)
-        val := EVAL(bindings[i+1], let_env) or_return
+        val, ok_val := EVAL(bindings[i+1], let_env)
+        if !ok_val do return val, outer_env, false
         types.env_set(let_env, name, val)
     }
 
@@ -220,7 +222,8 @@ eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
 
 eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     for i in 1..<len(ast) {
-        res = EVAL(ast[i], outer_env) or_return
+        res, ok = EVAL(ast[i], outer_env)
+        if !ok do return res, false
     }
     return res, true
 }
@@ -375,10 +378,12 @@ main :: proc() {
         return
     }
 
-    // Running interactively:
-    buf: [256]byte
+    // Greeting message:
     host_lang, _ :=  types.env_get(main_env, "*host-language*")
     fmt.printfln("Welcome to MAL-{:s} version 0.1.0", host_lang)
+
+    // Running interactively:
+    buf: [256]byte
     for {
         // Prompt
         fmt.print("user> ")
