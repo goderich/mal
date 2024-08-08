@@ -41,10 +41,26 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return is_bl && !bl, true
     }
 
+    ns["string?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        _, is_str := xs[0].(string)
+        return is_str, true
+    }
+
+    ns["number?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        _, is_int := xs[0].(int)
+        return is_int, true
+    }
+
+    ns["fn?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        _, is_core := xs[0].(Core_Fn)
+        _, is_closure := xs[0].(Closure)
+        return is_core || is_closure, true
+    }
+
     ns["symbol"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         str, is_str := xs[0].(string)
         if !is_str {
-            return string("Argument must be a string."), false
+            return raise("argument must be a string.")
         }
         return Symbol(strings.clone(str)), true
     }
@@ -61,7 +77,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         case Keyword:
             return arg, true
         }
-        return string("Argument must be a string or a keyword."), false
+        return raise("Argument must be a string or a keyword.")
     }
 
     ns["keyword?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -96,9 +112,10 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         buf: [256]byte
         n, err := os.read(os.stdin, buf[:])
         if err < 0 {
-            return string("readline error"), false
+            return raise("readline error")
         }
-        return strings.trim_right(string(buf[:n]), "\n"), true
+        input := strings.clone(string(buf[:n]))
+        return strings.trim_right(input, "\n"), true
     }
 
     ns["pr-str"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -209,6 +226,10 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         x := xs[0].(int)
         y := xs[1].(int)
         return x >= y, true
+    }
+
+    ns["time-ms"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        return raise("not implemented")
     }
 
     // Data structures
@@ -415,7 +436,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         if !is_seq do return raise("Argument must be a sequence.")
 
         if len(seq) <= i {
-            return raise("Out of bounds!")
+            return raise("out of bounds!")
         } else {
             return seq[i], true
         }
@@ -472,7 +493,23 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         }
     }
 
+    ns["conj"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        return raise("not implemented")
+    }
+
+    ns["seq"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        return raise("not implemented")
+    }
+
     // Atoms
+
+    ns["with-meta"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        return raise("not implemented")
+    }
+
+    ns["meta"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        return raise("not implemented")
+    }
 
     ns["atom"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         return Atom(&xs[0]), true
