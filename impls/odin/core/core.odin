@@ -89,6 +89,18 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return nil, true
     }
 
+    ns["readline"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        x, is_string := xs[0].(string)
+        fmt.print(x)
+
+        buf: [256]byte
+        n, err := os.read(os.stdin, buf[:])
+        if err < 0 {
+            return string("readline error"), false
+        }
+        return strings.trim_right(string(buf[:n]), "\n"), true
+    }
+
     ns["pr-str"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         list: [dynamic]string
         for x in xs {
