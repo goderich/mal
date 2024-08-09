@@ -447,11 +447,11 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         #partial switch t in xs[0] {
         case List:
             if len(t) > 0 {
-                for el in t[1:] do append(&acc, el)
+                append(&acc, ..cast([]MalType)t[1:])
             }
         case Vector:
             if len(t) > 0 {
-                for el in t[1:] do append(&acc, el)
+                append(&acc, ..cast([]MalType)t[1:])
             }
         case nil:
             break

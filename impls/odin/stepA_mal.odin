@@ -221,11 +221,11 @@ eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
 }
 
 eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
-    for i in 1..<len(ast) {
+    for i in 1..<(len(ast)-1) {
         res, ok = EVAL(ast[i], outer_env)
         if !ok do return res, false
     }
-    return res, true
+    return ast[len(ast)-1], true
 }
 
 eval_closure :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, ok: bool) {
