@@ -16,9 +16,9 @@ Closure :: types.Closure
 unpack_seq :: proc(seq: MalType) -> (arr: []MalType, ok: bool) {
     #partial switch type in seq {
     case List:
-        return cast([]MalType)type, true
+        return type.data, true
     case Vector:
-        return cast([]MalType)type, true
+        return type.data, true
     }
     return nil, false
 }
@@ -33,8 +33,8 @@ concat :: proc(xs: ..MalType) -> [dynamic]MalType {
 
 copy_map :: proc(m: Hash_Map) -> Hash_Map {
     res := new(Hash_Map)
-    for k, v in m {
-        res[k] = v
+    for k, v in m.data {
+        res.data[k] = v
     }
     return res^
 }

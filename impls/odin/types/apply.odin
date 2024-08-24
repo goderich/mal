@@ -10,9 +10,9 @@ package types
 apply :: proc(farg: MalType, args: ..MalType) -> (res: MalType, ok: bool) {
     #partial switch &fn in farg {
     case Core_Fn:
-        return fn(..args)
+        return fn.fn(..args)
     case Closure:
-        eval_closure(&fn, List(args))
+        eval_closure(&fn, to_list(args))
         return fn.eval(fn.ast^, &fn.env)
     }
     return nil, false
@@ -25,11 +25,11 @@ eval_closure :: proc(fn: ^Closure, args: List) {
         // "Rest" params with '&'
         if fn.params[i] == "&" {
             rest_params := fn.params[i+1]
-            rest_vals := args[i:]
-            env_set(&fn.env, rest_params, rest_vals)
+            rest_vals := args.data[i:]
+            env_set(&fn.env, rest_params, to_list(rest_vals))
             break
         }
         // Regular args
-        env_set(&fn.env, fn.params[i], args[i])
+        env_set(&fn.env, fn.params[i], args.data[i])
     }
 }

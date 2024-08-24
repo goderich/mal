@@ -20,7 +20,11 @@ Core_Fn :: types.Core_Fn
 Closure :: types.Closure
 Atom :: types.Atom
 
-make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
+make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
+    // Store function definitions here,
+    // before converting them in one place
+    // at the end of the make_ns proc.
+    ns: map[Symbol](proc(..MalType) -> (MalType, bool))
 
     // Equality and predicates
 
@@ -246,7 +250,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     ns["list"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         list: [dynamic]MalType
         append(&list, ..xs)
-        return List(list[:]), true
+        return types.to_list(list), true
     }
 
     // Right now the function ignores any arguments
@@ -259,7 +263,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     ns["vector"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         list: [dynamic]MalType
         append(&list, ..xs)
-        return Vector(list[:]), true
+        return types.to_vector(list), true
     }
 
     ns["vector?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -270,7 +274,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     ns["vector"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         list: [dynamic]MalType
         append(&list, ..xs)
-        return Vector(list[:]), true
+        return types.to_vector(list), true
     }
 
     ns["hash-map"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -278,11 +282,11 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             return raise("Uneven number of arguments.")
         }
 
-        m := make(Hash_Map)
+        m := new(Hash_Map)
         for i := 0; i < len(xs); i += 2 {
-            insert_in_map(&m, xs[i], xs[i+1])
+            insert_in_map(m, xs[i], xs[i+1])
         }
-        return m, true
+        return m^, true
     }
 
     ns["map?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -310,7 +314,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         for k in xs[1:] {
             k_ptr, in_map := key_in_map(&m, k)
             if in_map {
-                delete_key(&m, k_ptr)
+                delete_key(&m.data, k_ptr)
             }
         }
         return m, true
@@ -321,7 +325,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             case Hash_Map:
             k_ptr, in_map := key_in_map(&m, xs[1])
             if in_map {
-                return m[k_ptr], true
+                return m.data[k_ptr], true
             } else {
                 return nil, true
             }
@@ -340,19 +344,19 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     ns["keys"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         acc: [dynamic]MalType
         m := xs[0].(Hash_Map)
-        for k in m {
+        for k in m.data {
             append(&acc, k^)
         }
-        return List(acc[:]), true
+        return types.to_list(acc), true
     }
 
     ns["vals"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         acc: [dynamic]MalType
         m := xs[0].(Hash_Map)
-        for _, v in m {
+        for _, v in m.data {
             append(&acc, v)
         }
-        return List(acc[:]), true
+        return types.to_list(acc), true
     }
 
     // Sequences
@@ -378,9 +382,9 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     ns["count"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         #partial switch x in xs[0] {
         case List:
-            return len(x), true
+            return len(x.data), true
         case Vector:
-            return len(x), true
+            return len(x.data), true
         case string:
             return len(x), true
         case nil:
@@ -394,11 +398,11 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         append(&arr, xs[0])
         #partial switch t in xs[1] {
             case List:
-            append(&arr, ..cast([]MalType)t)
+            append(&arr, ..t.data)
             case Vector:
-            append(&arr, ..cast([]MalType)t)
+            append(&arr, ..t.data)
         }
-        return List(arr[:]), true
+        return types.to_list(arr), true
     }
 
     ns["concat"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -406,33 +410,33 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         for x in xs {
             #partial switch t in x {
                 case List:
-                append(&arr, ..cast([]MalType)t)
+                append(&arr, ..t.data)
                 case Vector:
-                append(&arr, ..cast([]MalType)t)
+                append(&arr, ..t.data)
             }
         }
-        return List(arr[:]), true
+        return types.to_list(arr), true
     }
 
     ns["vec"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         vec: [dynamic]MalType
         #partial switch t in xs[0] {
         case List:
-            append(&vec, ..cast([]MalType)t)
+            append(&vec, ..t.data)
         case Vector:
             return t, true
         case:
             return raise("Error: incorrect argument passed to function 'vec'.")
         }
-        return Vector(vec[:]), true
+        return types.to_vector(vec), true
     }
 
     ns["first"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         #partial switch t in xs[0] {
         case List:
-            if !is_empty(t) do res = t[0]
+            if !is_empty(t) do res = t.data[0]
         case Vector:
-            if !is_empty(t) do res = t[0]
+            if !is_empty(t) do res = t.data[0]
         }
         return res, true
     }
@@ -454,18 +458,18 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         #partial switch t in xs[0] {
         case List:
             if !is_empty(t) {
-                append(&acc, ..cast([]MalType)t[1:])
+                append(&acc, ..t.data[1:])
             }
         case Vector:
             if !is_empty(t) {
-                append(&acc, ..cast([]MalType)t[1:])
+                append(&acc, ..t.data[1:])
             }
         case nil:
             break
         case:
             return nil, false
         }
-        return List(acc[:]), true
+        return types.to_list(acc), true
     }
 
     ns["apply"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -496,7 +500,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
                 if !ok_arg do return new_arg, false
                 append(&acc, new_arg)
             }
-            return List(acc[:]), true
+            return types.to_list(acc), true
         }
     }
 
@@ -505,15 +509,15 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         #partial switch t in xs[0] {
 
         case List:
-            #reverse for elem in t do append(&list, elem)
+            #reverse for elem in t.data do append(&list, elem)
             for x in xs[1:] do append(&list, x)
             slice.reverse(list[:])
-            return List(list[:]), true
+            return types.to_list(list), true
 
         case Vector:
-            append_elems(&list, ..cast([]MalType)t)
-            append_elems(&list, ..xs[1:])
-            return Vector(list[:]), true
+            append(&list, ..t.data)
+            append(&list, ..xs[1:])
+            return types.to_vector(list), true
         }
 
         return raise("incorrect argument. Expected List or Vector")
@@ -535,7 +539,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             for c in t {
                 append_elem(&list, utf8.runes_to_string([]rune{c}))
             }
-            return List(list[:]), true
+            return types.to_list(list), true
         case nil:
             return nil, true
         }
@@ -594,7 +598,14 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         return xs[0], false
     }
 
-    return ns
+    // Convert procs to Core_Fn type here
+    for k, v in ns {
+        f := new(Core_Fn)
+        f.fn = v
+        namespace[k] = f^
+    }
+
+    return namespace
 }
 
 is_equal :: proc(x_outer, y_outer: MalType) -> bool {
@@ -641,19 +652,19 @@ is_equal_seqs :: proc(x_outer, y_outer: MalType) -> bool {
 
 is_equal_maps :: proc(m1, m2: Hash_Map) -> bool {
     m2 := m2 // shadowing m2 to pass to key_in_map
-    if len(m1) != len(m2) do return false
+    if len(m1.data) != len(m2.data) do return false
 
-    for key, val in m1 {
+    for key, val in m1.data {
         k_ptr, in_m2 := key_in_map(&m2, key^)
         if !in_m2 do return false
-        if !(is_equal(val, m2[k_ptr])) do return false
+        if !(is_equal(val, m2.data[k_ptr])) do return false
     }
 
     return true
 }
 
 key_in_map :: proc(m: ^Hash_Map, key: MalType) -> (k_ptr: ^MalType, ok: bool) {
-    for k in m {
+    for k in m.data {
         if is_equal(k^, key) do return k, true
     }
     return nil, false
@@ -668,10 +679,10 @@ insert_in_map :: proc(m: ^Hash_Map, key: MalType, val: MalType) {
     k_ptr, in_map := key_in_map(m, key)
 
     if in_map {
-        m[k_ptr] = val
+        m.data[k_ptr] = val
     } else {
         k := new_clone(key)
-        m[k] = val
+        m.data[k] = val
     }
 }
 
@@ -683,9 +694,9 @@ raise :: proc(str: string) -> (MalType, bool) {
 is_empty :: proc(x: MalType) -> bool {
     #partial switch t in x {
         case List:
-        return len(t) == 0
+        return len(t.data) == 0
         case Vector:
-        return len(t) == 0
+        return len(t.data) == 0
         case string:
         return len(t) == 0
     }

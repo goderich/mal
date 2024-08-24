@@ -49,7 +49,7 @@ pr_str :: proc(ast: MalType, print_readably := true) -> string {
 pr_list :: proc(ast: List, print_readably: bool) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '(')
-    write_items(&sb, cast([]MalType)ast, print_readably)
+    write_items(&sb, ast.data, print_readably)
     strings.write_byte(&sb, ')')
     return strings.to_string(sb)
 }
@@ -57,7 +57,7 @@ pr_list :: proc(ast: List, print_readably: bool) -> string {
 pr_vector :: proc(ast: Vector, print_readably: bool) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '[')
-    write_items(&sb, cast([]MalType)ast, print_readably)
+    write_items(&sb, ast.data, print_readably)
     strings.write_byte(&sb, ']')
     return strings.to_string(sb)
 }
@@ -66,7 +66,7 @@ pr_hash_map :: proc(m: Hash_Map, print_readably: bool) -> string {
     sb := strings.builder_make()
     strings.write_byte(&sb, '{')
     i := 0
-    for k, v in m {
+    for k, v in m.data {
         if i > 0 {
             strings.write_rune(&sb, ' ')
         }

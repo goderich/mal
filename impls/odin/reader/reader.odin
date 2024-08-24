@@ -5,6 +5,8 @@ import "core:unicode/utf8"
 import "core:strings"
 import "core:strconv"
 
+import "../types"
+
 EOF :: utf8.RUNE_EOF
 
 ////////////////////
@@ -289,7 +291,7 @@ read_list :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
         case .END:
             return string("unbalanced parentheses"), false
         case .RIGHT_PAREN:
-            return List(list[:]), true
+            return types.to_list(list), true
         case .RIGHT_SQUARE, .RIGHT_CURLY:
             return string("unbalanced parentheses"), false
         case:
@@ -310,7 +312,7 @@ read_vector :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
         case .END:
             return string("unbalanced parentheses"), false
         case .RIGHT_SQUARE:
-            return Vector(list[:]), true
+            return types.to_vector(list), true
         case .RIGHT_PAREN, .RIGHT_CURLY:
             return string("unbalanced parentheses"), false
         case:
@@ -343,7 +345,7 @@ read_hash_map :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
         }
         v := read_token(reader, t2) or_return
 
-        m[k] = v
+        m.data[k] = v
     }
 }
 
@@ -392,7 +394,7 @@ read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, ok: bool) {
     }
     f := read_form(reader) or_return
     append(&list, Symbol(sym), f)
-    return List(list[:]), true
+    return types.to_list(list), true
 }
 
 read_metadata :: proc(reader: ^Reader) -> (ast: MalType, ok: bool) {
@@ -405,5 +407,5 @@ read_metadata :: proc(reader: ^Reader) -> (ast: MalType, ok: bool) {
     data := read_form(reader) or_return
     sym := Symbol("with-meta")
     append(&list, sym, data, m)
-    return List(list[:]), true
+    return types.to_list(list), true
 }
