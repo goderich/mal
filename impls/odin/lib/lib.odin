@@ -14,11 +14,11 @@ Core_Fn :: types.Core_Fn
 Closure :: types.Closure
 
 unpack_seq :: proc(seq: MalType) -> (arr: []MalType, ok: bool) {
-    #partial switch type in seq {
+    #partial switch t in seq {
     case List:
-        return type.data, true
+        return t.data, true
     case Vector:
-        return type.data, true
+        return t.data, true
     }
     return nil, false
 }

@@ -546,14 +546,66 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
         return raise("incorrect argument")
     }
 
-    // Atoms
+    // Atoms and metadata
 
     ns["with-meta"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
-        return raise("not implemented")
+        #partial switch t in xs[0] {
+            case List:
+            list := new(List)
+            list.data = t.data
+            list.meta = &xs[1]
+            return list^, true
+
+            case Vector:
+            vec := new(Vector)
+            vec.data = t.data
+            vec.meta = &xs[1]
+            return vec^, true
+
+            case Hash_Map:
+            m := new(Hash_Map)
+            m.data = t.data
+            m.meta = &xs[1]
+            return m^, true
+
+            case Core_Fn:
+            f := new(Core_Fn)
+            f.fn = t.fn
+            f.meta = &xs[1]
+            return f^, true
+
+            case Closure:
+            f := new(Closure)
+            f.params = t.params
+            f.ast = t.ast
+            f.env = t.env
+            f.eval = t.eval
+            f.is_macro = t.is_macro
+            f.meta = &xs[1]
+            return f^, true
+        }
+        return raise("incorrect argument type")
     }
 
     ns["meta"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
-        return raise("not implemented")
+        #partial switch t in xs[0] {
+            case List:
+            meta := t.meta^ if t.meta != nil else nil
+            return meta, true
+            case Vector:
+            meta := t.meta^ if t.meta != nil else nil
+            return meta, true
+            case Hash_Map:
+            meta := t.meta^ if t.meta != nil else nil
+            return meta, true
+            case Core_Fn:
+            meta := t.meta^ if t.meta != nil else nil
+            return meta, true
+            case Closure:
+            meta := t.meta^ if t.meta != nil else nil
+            return meta, true
+        }
+        return raise("incorrect argument type")
     }
 
     ns["atom"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {

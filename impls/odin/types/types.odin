@@ -24,21 +24,21 @@ Keyword :: distinct string
 
 List :: struct {
     data: []MalType,
-    meta: map[^MalType]MalType,
+    meta: ^MalType,
 }
 Vector :: struct {
     data: []MalType,
-    meta: map[^MalType]MalType,
+    meta: ^MalType,
 }
 // Odin does not allow MalType to be a key, but a pointer to it works.
 Hash_Map :: struct {
     data: map[^MalType]MalType,
-    meta: map[^MalType]MalType,
+    meta: ^MalType,
 }
 
 Core_Fn :: struct {
     fn: proc(..MalType) -> (MalType, bool),
-    meta: map[^MalType]MalType,
+    meta: ^MalType,
 }
 
 Closure :: struct {
@@ -47,7 +47,7 @@ Closure :: struct {
     env: Env,
     eval: proc(MalType, ^Env) -> (MalType, bool),
     is_macro: bool,
-    meta: map[^MalType]MalType,
+    meta: ^MalType,
 }
 
 Atom :: ^MalType
