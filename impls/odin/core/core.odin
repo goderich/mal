@@ -2,7 +2,9 @@ package core
 
 import "core:fmt"
 import "core:strings"
+import "core:slice"
 import "core:os"
+import "core:unicode/utf8"
 
 import "../types"
 import "../reader"
@@ -53,8 +55,13 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
     ns["fn?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         _, is_core := xs[0].(Core_Fn)
-        _, is_closure := xs[0].(Closure)
-        return is_core || is_closure, true
+        clos, is_closure := xs[0].(Closure)
+        return is_core || (is_closure && !clos.is_macro), true
+    }
+
+    ns["macro?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        fn, is_closure := xs[0].(Closure)
+        return is_closure && fn.is_macro, true
     }
 
     ns["symbol"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -93,6 +100,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             append(&list, reader.pr_str(x))
         }
         fmt.println(strings.join(list[:], " ", allocator = context.temp_allocator))
+        free_all(context.temp_allocator)
         return nil, true
     }
 
@@ -102,6 +110,7 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
             append(&list, reader.pr_str(x, print_readably = false))
         }
         fmt.println(strings.join(list[:], " ", allocator = context.temp_allocator))
+        free_all(context.temp_allocator)
         return nil, true
     }
 
@@ -360,10 +369,8 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
 
     ns["empty?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         #partial switch x in xs[0] {
-        case List:
-            return len(x) == 0, true
-        case Vector:
-            return len(x) == 0, true
+            case List, Vector:
+            return is_empty(x), true
         }
         return nil, false
     }
@@ -423,9 +430,9 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     ns["first"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         #partial switch t in xs[0] {
         case List:
-            if len(t) > 0 do res = t[0]
+            if !is_empty(t) do res = t[0]
         case Vector:
-            if len(t) > 0 do res = t[0]
+            if !is_empty(t) do res = t[0]
         }
         return res, true
     }
@@ -446,11 +453,11 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
         acc: [dynamic]MalType
         #partial switch t in xs[0] {
         case List:
-            if len(t) > 0 {
+            if !is_empty(t) {
                 append(&acc, ..cast([]MalType)t[1:])
             }
         case Vector:
-            if len(t) > 0 {
+            if !is_empty(t) {
                 append(&acc, ..cast([]MalType)t[1:])
             }
         case nil:
@@ -494,11 +501,45 @@ make_ns :: proc() -> (ns: map[Symbol]Core_Fn) {
     }
 
     ns["conj"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
-        return raise("not implemented")
+        list: [dynamic]MalType
+        #partial switch t in xs[0] {
+
+        case List:
+            #reverse for elem in t do append(&list, elem)
+            for x in xs[1:] do append(&list, x)
+            slice.reverse(list[:])
+            return List(list[:]), true
+
+        case Vector:
+            append_elems(&list, ..cast([]MalType)t)
+            append_elems(&list, ..xs[1:])
+            return Vector(list[:]), true
+        }
+
+        return raise("incorrect argument. Expected List or Vector")
     }
 
     ns["seq"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
-        return raise("not implemented")
+        #partial switch t in xs[0] {
+        case List:
+            if is_empty(t) do return nil, true
+            return t, true
+        case Vector:
+            if is_empty(t) do return nil, true
+            return List(t), true
+        case string:
+            if is_empty(t) do return nil, true
+            // TODO: Not sure if there is a better way
+            // to split a string into a list of 1-char strings
+            list: [dynamic]MalType
+            for c in t {
+                append_elem(&list, utf8.runes_to_string([]rune{c}))
+            }
+            return List(list[:]), true
+        case nil:
+            return nil, true
+        }
+        return raise("incorrect argument")
     }
 
     // Atoms
@@ -637,4 +678,16 @@ insert_in_map :: proc(m: ^Hash_Map, key: MalType, val: MalType) {
 // Raise an exception
 raise :: proc(str: string) -> (MalType, bool) {
     return str, false
+}
+
+is_empty :: proc(x: MalType) -> bool {
+    #partial switch t in x {
+        case List:
+        return len(t) == 0
+        case Vector:
+        return len(t) == 0
+        case string:
+        return len(t) == 0
+    }
+    return false
 }

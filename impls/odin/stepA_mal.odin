@@ -166,8 +166,11 @@ eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
 // Very similar to `eval_def` except for the is_macro flag
 eval_defmacro :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     sym := ast[1].(Symbol) or_return
-    fn := eval_closure(ast[2].(List), outer_env) or_return
+
+    body := EVAL(ast[2], outer_env) or_return
+    fn := body.(Closure) or_return
     fn.is_macro = true
+
     types.env_set(outer_env, sym, fn)
     return types.env_get(outer_env, sym)
 }
