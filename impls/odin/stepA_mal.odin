@@ -120,7 +120,7 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
             if !ok_evaled do return evaled, false
             append(&list, evaled)
         }
-        return types.to_list(list), true
+        return types.to_list(list[:]), true
 
     case Vector:
         list: [dynamic]MalType
@@ -129,7 +129,7 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
             if !ok_evaled do return evaled, false
             append(&list, evaled)
         }
-        return types.to_vector(list), true
+        return types.to_vector(list[:]), true
 
     case Hash_Map:
         m := new(Hash_Map)
@@ -253,10 +253,10 @@ eval_quasiquote :: proc(ast: MalType) -> MalType {
     #partial switch t in ast {
     case Symbol:
         arr := lib.concat(Symbol("quote"), t)
-        return types.to_list(arr)
+        return types.to_list(arr[:])
     case Hash_Map:
         arr := lib.concat(Symbol("quote"), t)
-        return types.to_list(arr)
+        return types.to_list(arr[:])
     case List:
         return eval_quasiquote_list(t)
     case Vector:
@@ -264,7 +264,7 @@ eval_quasiquote :: proc(ast: MalType) -> MalType {
         append(&list,
                Symbol("vec"),
                eval_quasiquote_list(types.to_list(t), true))
-        return types.to_list(list)
+        return types.to_list(list[:])
     }
     return ast
 
@@ -284,15 +284,15 @@ eval_quasiquote :: proc(ast: MalType) -> MalType {
             if list, is_list := el.(List); is_list && len(list.data) > 1 {
                 sym_el, ok_el := list.data[0].(Symbol)
                 if ok_el && sym_el == Symbol("splice-unquote") {
-                    acc = lib.concat(Symbol("concat"), list.data[1], types.to_list(acc))
+                    acc = lib.concat(Symbol("concat"), list.data[1], types.to_list(acc[:]))
                     continue
                 }
             }
 
             // Not splice unquote
-            acc = lib.concat(Symbol("cons"), eval_quasiquote(el), types.to_list(acc))
+            acc = lib.concat(Symbol("cons"), eval_quasiquote(el), types.to_list(acc[:]))
         }
-        return types.to_list(acc)
+        return types.to_list(acc[:])
     }
 }
 
@@ -418,6 +418,6 @@ main :: proc() {
         for i in 2..<len(os.args) {
             append(&args, os.args[i])
         }
-        types.env_set(env, "*ARGV*", types.to_list(args))
+        types.env_set(env, "*ARGV*", types.to_list(args[:]))
     }
 }

@@ -291,7 +291,7 @@ read_list :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
         case .END:
             return string("unbalanced parentheses"), false
         case .RIGHT_PAREN:
-            return types.to_list(list), true
+            return types.to_list(list[:]), true
         case .RIGHT_SQUARE, .RIGHT_CURLY:
             return string("unbalanced parentheses"), false
         case:
@@ -312,7 +312,7 @@ read_vector :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
         case .END:
             return string("unbalanced parentheses"), false
         case .RIGHT_SQUARE:
-            return types.to_vector(list), true
+            return types.to_vector(list[:]), true
         case .RIGHT_PAREN, .RIGHT_CURLY:
             return string("unbalanced parentheses"), false
         case:
@@ -324,14 +324,14 @@ read_vector :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
 }
 
 read_hash_map :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
-    m: Hash_Map
+    m := new(Hash_Map)
     for {
         t := next_token(&reader.tokenizer)
         #partial switch t.tag {
         case .END, .RIGHT_PAREN, .RIGHT_SQUARE:
             return string("unbalanced parentheses."), false
         case .RIGHT_CURLY:
-            return m, true
+            return m^, true
         }
         // Because keys are pointers, they have to be
         // allocated on the heap.
@@ -394,7 +394,7 @@ read_reader_macro :: proc(reader: ^Reader, t: Tag) -> (ast: List, ok: bool) {
     }
     f := read_form(reader) or_return
     append(&list, Symbol(sym), f)
-    return types.to_list(list), true
+    return types.to_list(list[:]), true
 }
 
 read_metadata :: proc(reader: ^Reader) -> (ast: MalType, ok: bool) {
@@ -407,5 +407,5 @@ read_metadata :: proc(reader: ^Reader) -> (ast: MalType, ok: bool) {
     data := read_form(reader) or_return
     sym := Symbol("with-meta")
     append(&list, sym, data, m)
-    return types.to_list(list), true
+    return types.to_list(list[:]), true
 }

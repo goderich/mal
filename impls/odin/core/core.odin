@@ -250,7 +250,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
     ns["list"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         list: [dynamic]MalType
         append(&list, ..xs)
-        return types.to_list(list), true
+        return types.to_list(list[:]), true
     }
 
     // Right now the function ignores any arguments
@@ -263,7 +263,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
     ns["vector"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         list: [dynamic]MalType
         append(&list, ..xs)
-        return types.to_vector(list), true
+        return types.to_vector(list[:]), true
     }
 
     ns["vector?"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -274,7 +274,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
     ns["vector"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         list: [dynamic]MalType
         append(&list, ..xs)
-        return types.to_vector(list), true
+        return types.to_vector(list[:]), true
     }
 
     ns["hash-map"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -347,7 +347,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
         for k in m.data {
             append(&acc, k^)
         }
-        return types.to_list(acc), true
+        return types.to_list(acc[:]), true
     }
 
     ns["vals"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -356,7 +356,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
         for _, v in m.data {
             append(&acc, v)
         }
-        return types.to_list(acc), true
+        return types.to_list(acc[:]), true
     }
 
     // Sequences
@@ -402,7 +402,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
             case Vector:
             append(&arr, ..t.data)
         }
-        return types.to_list(arr), true
+        return types.to_list(arr[:]), true
     }
 
     ns["concat"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -415,7 +415,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
                 append(&arr, ..t.data)
             }
         }
-        return types.to_list(arr), true
+        return types.to_list(arr[:]), true
     }
 
     ns["vec"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -428,7 +428,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
         case:
             return raise("Error: incorrect argument passed to function 'vec'.")
         }
-        return types.to_vector(vec), true
+        return types.to_vector(vec[:]), true
     }
 
     ns["first"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -469,7 +469,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
         case:
             return nil, false
         }
-        return types.to_list(acc), true
+        return types.to_list(acc[:]), true
     }
 
     ns["apply"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
@@ -500,7 +500,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
                 if !ok_arg do return new_arg, false
                 append(&acc, new_arg)
             }
-            return types.to_list(acc), true
+            return types.to_list(acc[:]), true
         }
     }
 
@@ -512,12 +512,12 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
             #reverse for elem in t.data do append(&list, elem)
             for x in xs[1:] do append(&list, x)
             slice.reverse(list[:])
-            return types.to_list(list), true
+            return types.to_list(list[:]), true
 
         case Vector:
             append(&list, ..t.data)
             append(&list, ..xs[1:])
-            return types.to_vector(list), true
+            return types.to_vector(list[:]), true
         }
 
         return raise("incorrect argument. Expected List or Vector")
@@ -539,7 +539,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
             for c in t {
                 append_elem(&list, utf8.runes_to_string([]rune{c}))
             }
-            return types.to_list(list), true
+            return types.to_list(list[:]), true
         case nil:
             return nil, true
         }

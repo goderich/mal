@@ -52,50 +52,25 @@ Closure :: struct {
 
 Atom :: ^MalType
 
-to_list :: proc{to_list_dynamic, to_list_static, to_list_vector}
-
-to_list_dynamic :: proc(xs: [dynamic]MalType) -> List {
-    defer delete(xs)
-    list := new(List)
-    data := make([]MalType, len(xs))
-    copy(data, xs[:])
-    list.data = data
-    return list^
-}
+to_list :: proc{to_list_static, to_list_vector}
 
 to_list_static :: proc(xs: []MalType) -> List {
-    defer delete(xs)
     list := new(List)
-    data := make([]MalType, len(xs))
-    copy(data, xs)
-    list.data = data
+    list.data = make([]MalType, len(xs))
+    copy(list.data, xs)
     return list^
 }
 
 to_list_vector :: proc(v: Vector) -> List {
     list := new(List)
-    data := make([]MalType, len(v.data))
-    copy(data, v.data)
-    list.data = data
+    list.data = make([]MalType, len(v.data))
+    copy(list.data, v.data)
     return list^
 }
 
-to_vector :: proc{to_vector_dynamic, to_vector_static}
-
-to_vector_dynamic :: proc(xs: [dynamic]MalType) -> Vector {
-    defer delete(xs)
+to_vector :: proc(xs: []MalType) -> Vector {
     vec := new(Vector)
-    data := make([]MalType, len(xs))
-    copy(data, xs[:])
-    vec.data = data
-    return vec^
-}
-
-to_vector_static :: proc(xs: []MalType) -> Vector {
-    defer delete(xs)
-    vec := new(Vector)
-    data := make([]MalType, len(xs))
-    copy(data, xs)
-    vec.data = data
+    vec.data = make([]MalType, len(xs))
+    copy(vec.data, xs)
     return vec^
 }
