@@ -57,20 +57,26 @@ to_list :: proc{to_list_dynamic, to_list_static, to_list_vector}
 to_list_dynamic :: proc(xs: [dynamic]MalType) -> List {
     defer delete(xs)
     list := new(List)
-    list.data = xs[:]
+    data := make([]MalType, len(xs))
+    copy(data, xs[:])
+    list.data = data
     return list^
 }
 
 to_list_static :: proc(xs: []MalType) -> List {
     defer delete(xs)
     list := new(List)
-    list.data = xs
+    data := make([]MalType, len(xs))
+    copy(data, xs)
+    list.data = data
     return list^
 }
 
 to_list_vector :: proc(v: Vector) -> List {
     list := new(List)
-    list.data = v.data
+    data := make([]MalType, len(v.data))
+    copy(data, v.data)
+    list.data = data
     return list^
 }
 
@@ -79,13 +85,17 @@ to_vector :: proc{to_vector_dynamic, to_vector_static}
 to_vector_dynamic :: proc(xs: [dynamic]MalType) -> Vector {
     defer delete(xs)
     vec := new(Vector)
-    vec.data = xs[:]
+    data := make([]MalType, len(xs))
+    copy(data, xs[:])
+    vec.data = data
     return vec^
 }
 
 to_vector_static :: proc(xs: []MalType) -> Vector {
     defer delete(xs)
     vec := new(Vector)
-    vec.data = xs
+    data := make([]MalType, len(xs))
+    copy(data, xs)
+    vec.data = data
     return vec^
 }
