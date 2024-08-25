@@ -24,7 +24,7 @@ READ :: proc(s: string) -> (ast: MalType, ok: bool) {
 EVAL :: proc(input: MalType, env: ^Env) -> (res: MalType, ok: bool) {
     #partial switch ast in input {
     case List:
-        if len(ast) == 0 do return ast, true
+        if len(ast.data) == 0 do return ast, true
         evaled := eval_ast(ast, env) or_return
         list := evaled.(List)
         return apply_fn(list, env)
@@ -37,35 +37,34 @@ eval_ast :: proc(input: MalType, env: ^Env) -> (res: MalType, ok: bool) {
     #partial switch ast in input {
     case List:
         list: [dynamic]MalType
-        for elem in ast {
+        for elem in ast.data {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
         }
-        return List(list[:]), true
+        return types.to_list(list), true
 
     case Vector:
         list: [dynamic]MalType
-        for elem in ast {
+        for elem in ast.data {
             evaled := EVAL(elem, env) or_return
             append(&list, evaled)
         }
-        return Vector(list[:]), true
+        return types.to_vector(list), true
 
     case Hash_Map:
-        m := make(map[^MalType]MalType)
-        for k, v in ast {
+        m := new(Hash_Map)
+        for k, v in ast.data {
             evaled := EVAL(v, env) or_return
-            m[k] = evaled
+            m.data[k] = evaled
         }
-        return m, true
+        return m^, true
     }
 
     return input, true
 }
 
 apply_fn :: proc(ast: List, env: ^Env) -> (res: MalType, ok: bool) {
-    list := cast([]MalType)ast
-    fst := list[0]
+    fst := ast.data[0]
     sym, s_ok := fst.(Symbol)
     if !s_ok {
         fmt.printfln("Error: {:v} is not a symbol.", fst)
@@ -76,7 +75,7 @@ apply_fn :: proc(ast: List, env: ^Env) -> (res: MalType, ok: bool) {
         fmt.printfln("Error: {:v} is not defined.", sym)
         return nil, false
     }
-    return f(..list[1:]), true
+    return f(..ast.data[1:]), true
 }
 
 create_env :: proc() -> (env: Env) {
