@@ -1,4 +1,7 @@
+use ascii;
 use strings;
+use strings::{iterator};
+use fmt; // testing only
 
 // TOKENIZER
 
@@ -18,29 +21,28 @@ type tag = enum {
 };
 
 type loc = struct {
-	begin: uint,
-	end: uint,
+	begin: iterator,
+	end: iterator,
 };
 
-type tokenizer = struct {
-	iter: strings::iterator,
-	pos: uint,
-};
-
-// Borrows string for the duration of the tokenizer
-fn new_tokenizer(s: str) tokenizer = tokenizer {
-	iter = strings::iter(s),
-	pos = 0,
-};
-
-fn next_token(t: *tokenizer) token = {
-	const rn = match (strings::next(t)) {
+fn next_token(iter: iterator) token = {
+	let rn = match (strings::next(&iter)) {
         case done =>
 		return token { tag = tag::END, ... };
         case let rn: rune =>
 		yield rn;
 	};
 
+	if (ascii::isspace(rn)) {
+		for (let c => strings::next(&iter)) {
+			if (!ascii::isspace(c)) {
+                                rn = c;
+				break;
+			};
+		};
+	};
+	// TODO: need to check for 'done' again
+        
 	switch (rn) {
 	case '(' =>
 		return token { tag = tag::LEFT_PAREN, ... };
@@ -51,32 +53,68 @@ fn next_token(t: *tokenizer) token = {
 	};
 
 	if (ascii::isdigit(rn)) {
-		return tokenize_number(t);
+		return tokenize_number(iter);
 	};
+
+	return tokenize_symbol(iter);
 };
 
-fn tokenize_number(t: *tokenizer) token = {};
-fn tokenize_symbol(t: *tokenizer) token = {};
+fn tokenize_number(iter: iterator) token = {
+        strings::prev(&iter);
+        let begin = iter;
+	for (let rn => strings::next(&iter)) {
+                if (!ascii::isdigit(rn)) {
+			break;
+		};
+	};
+        strings::prev(&iter); // rewind
+	return token { tag = tag::NUMBER,
+	loc = loc { begin = begin, end = iter } };
+};
+
+fn tokenize_symbol(iter: iterator) token = {
+        strings::prev(&iter); // rewind
+        let begin = iter;
+	for (let rn => strings::next(&iter)) {
+                if (ascii::isspace(rn) || rn == '(' || rn == ')') {
+			break;
+		};
+	};
+        strings::prev(&iter); // rewind
+	return token { tag = tag::SYMBOL,
+	loc = loc { begin = begin, end = iter } };
+};
+
+fn curr_char(iter: *iterator) rune = {
+	return iter.dec.src[iter.dec.offs]: rune;
+};
 
 // READER
 
-fn read_str(s: str) ast = {
-	const t = &new_tokenizer(s);
-	return read_form(t);
-};
+// fn read_str(s: str) ast = {
+// 	const t = &strings::iter(s);
+// 	return read_form(t);
+// };
 
-fn read_form(t: *tokenizer) ast = {
-	switch (next_token(t).tag) {
-        case tag::END =>
-	     return;
-        case =>
-	     return;
-	};
-};
+// fn read_form(iter: *iterator) ast = {
+//         const token = next_token(iter);
+// 	switch (token.tag) {
+//         case tag::END =>
+// 		return [];
+//         case =>
+// 		return read_atom(iter, token);
+// 	};
+// };
 
-fn read_atom() atom = {};
+// fn read_atom(iter: *iterator, t: token) *atom = {
 
-fn read_list() []ast = {};
+// 	switch (token.tag) {
+// 	case tag::NUMBER =>
+
+// 	};
+// };
+
+// fn read_list() []ast = {};
 
 // TYPES
 type symbol = str;
@@ -84,6 +122,22 @@ type atom = (int | symbol);
 type ast = (*atom | []ast);
 
 // TESTS
+// Step 0: tokenizer test
+@test fn test_tokenizer() void = {
+	const s = "   123  ";
+        const iter = strings::iter(s);
+	const tok = next_token(iter);
+	assert(tok.tag == tag::NUMBER);
+        const slice = strings::slice(&tok.loc.begin, &tok.loc.end);
+	assert(slice == "123", fmt::asprintf("slice = '{}'", slice));
+};
+
+@test fn test_tokenizer_2() void = {
+	const s = "123  ";
+        const iter = &strings::iter(s);
+	assert(curr_char(iter) == '1');
+};
+
 // Step 1: a single int "42"
 // Step 2: a simple list "(1 2 4)"
 // Step 3: a nested list "(1 13 (24 47) 8)"
@@ -91,3 +145,4 @@ type ast = (*atom | []ast);
 // Step 5: wrong syntax, errors
 // const s5a = "(+ 13 ";
 // const s5b = ")";
+// empty string ""
