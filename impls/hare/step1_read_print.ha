@@ -5,7 +5,7 @@ use os;
 use strings;
 
 export fn main() void = {
-	fmt::println("MAL-on-Hare version 0.0.0")!;
+	fmt::println("MAL-on-Hare version 0.0.1")!;
 	let in_line: []u8 = [];
 	defer free(in_line);
 
@@ -20,26 +20,27 @@ export fn main() void = {
 		};
 		const result = rep(strings::fromutf8(in_line)!);
 		fmt::println(result)!;
+		free(result);
 	};
     
 	fmt::println("\nExiting...")!;
 };
 
 fn rep(s: str) str = {
-    const r = READ(s);
-    const e = EVAL(r);
+	const r = READ(s);
+	const e = EVAL(r);
 	const p = PRINT(e);
 	return p;
 };
 
-fn READ(s: str) str = {
-	return s;
+fn READ(s: str) ast = {
+	return read_str(s);
 };
 
-fn EVAL(s: str) str = {
-	return s;
+fn EVAL(a: ast) ast = {
+	return a;
 };
 
-fn PRINT(s: str) str = {
-	return s;
+fn PRINT(a: ast) str = {
+	return pr_str(a);
 };
