@@ -3,6 +3,7 @@ package core
 import "core:fmt"
 import "core:strings"
 import "core:slice"
+import "core:time"
 import "core:os"
 import "core:unicode/utf8"
 
@@ -648,6 +649,13 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
 
     ns["throw"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         return xs[0], false
+    }
+
+    // Timing
+
+    ns["time-ms"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
+        nano := time.time_to_unix_nano(time.now())
+        return int(nano), true
     }
 
     // Convert procs to Core_Fn type here
