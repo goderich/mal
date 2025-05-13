@@ -246,7 +246,7 @@ main :: proc() {
     for {
         fmt.print("user> ")
         n, err := os.read(os.stdin, buf[:])
-        if err < 0 {
+        if err != nil {
             // Handle error
             return
         }

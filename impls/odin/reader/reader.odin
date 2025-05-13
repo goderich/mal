@@ -217,6 +217,7 @@ tokenizer_skip_comment :: proc(tokenizer: ^Tokenizer) -> (eofp: bool) {
 
 read_str :: proc(str: string) -> (MalType, bool) {
     r := reader_create(str)
+    defer free(&r)
     return read_form(&r)
 }
 

@@ -124,7 +124,7 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
 
         buf: [256]byte
         n, err := os.read(os.stdin, buf[:])
-        if err < 0 {
+        if err != nil {
             return raise("readline error")
         }
         input := strings.clone(string(buf[:n]))

@@ -391,7 +391,7 @@ main :: proc() {
         // Prompt
         fmt.print("user> ")
         n, err := os.read(os.stdin, buf[:])
-        if err < 0 {
+        if err != nil {
             fmt.println("Error: read error.")
             continue
         }

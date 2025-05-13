@@ -52,13 +52,19 @@ Closure :: struct {
 
 Atom :: ^MalType
 
-to_list :: proc{to_list_static, to_list_vector}
+to_list :: proc{to_list_static, to_list_vector, to_list_dynamic}
 
 to_list_static :: proc(xs: []MalType) -> List {
     list := new(List)
     list.data = make([]MalType, len(xs))
     copy(list.data, xs)
+    delete(xs)
     return list^
+}
+
+to_list_dynamic :: proc(xs: [dynamic]MalType) -> List {
+    defer delete(xs)
+    return to_list_static(xs[:])
 }
 
 to_list_vector :: proc(v: Vector) -> List {
@@ -68,9 +74,17 @@ to_list_vector :: proc(v: Vector) -> List {
     return list^
 }
 
-to_vector :: proc(xs: []MalType) -> Vector {
+to_vector :: proc{to_vector_static, to_vector_dynamic}
+
+to_vector_static :: proc(xs: []MalType) -> Vector {
     vec := new(Vector)
     vec.data = make([]MalType, len(xs))
     copy(vec.data, xs)
+    delete(xs)
     return vec^
+}
+
+to_vector_dynamic :: proc(xs: [dynamic]MalType) -> Vector {
+    defer delete(xs)
+    return to_vector_static(xs[:])
 }

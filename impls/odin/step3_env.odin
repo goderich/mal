@@ -30,9 +30,9 @@ READ :: proc(s: string) -> (ast: MalType, ok: bool) {
 EVAL :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, ok: bool) {
     #partial switch ast in input {
     case List:
-        if len(ast) == 0 do return ast, true
+        if len(ast.data) == 0 do return ast, true
 
-        fst, ok := ast[0].(Symbol)
+        fst, ok := ast.data[0].(Symbol)
         if !ok {
             fmt.println("Error: the first member of a list must be a symbol.")
             return nil, false
@@ -59,27 +59,27 @@ eval_ast :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, ok: bool) {
     #partial switch ast in input {
     case List:
         list: [dynamic]MalType
-        for elem in ast {
+        for elem in ast.data {
             evaled := EVAL(elem, repl_env) or_return
             append(&list, evaled)
         }
-        return List(list[:]), true
+        return types.to_list(list), true
 
     case Vector:
         list: [dynamic]MalType
-        for elem in ast {
+        for elem in ast.data {
             evaled := EVAL(elem, repl_env) or_return
             append(&list, evaled)
         }
-        return Vector(list[:]), true
+        return types.to_vector(list), true
 
     case Hash_Map:
-        m := make(map[^MalType]MalType)
-        for k, v in ast {
+        m := new(Hash_Map)
+        for k, v in ast.data {
             evaled := EVAL(v, repl_env) or_return
-            m[k] = evaled
+            m.data[k] = evaled
         }
-        return m, true
+        return m^, true
 
     case Symbol:
         val, ok := types.env_get(repl_env, ast)
@@ -95,9 +95,9 @@ eval_ast :: proc(input: MalType, repl_env: ^Env) -> (res: MalType, ok: bool) {
 }
 
 eval_def :: proc(ast: List, repl_env: ^Env) -> (res: MalType, ok: bool) {
-    sym := ast[1].(Symbol)
+    sym := ast.data[1].(Symbol)
     // Evaluate the expression to get symbol value
-    val := EVAL(ast[2], repl_env) or_return
+    val := EVAL(ast.data[2], repl_env) or_return
     // Set environment variable
     types.env_set(repl_env, sym, val)
     // Retrieve variable
@@ -109,11 +109,11 @@ eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, ok: bool) {
     let_env.outer = repl_env
 
     bindings: []MalType
-    #partial switch t in ast[1] {
+    #partial switch t in ast.data[1] {
     case List:
-        bindings = cast([]MalType)t
+        bindings = t.data
     case Vector:
-        bindings = cast([]MalType)t
+        bindings = t.data
     case:
         fmt.println("Error: the second member of a let* expression must be a list or a vector.")
         return nil, false
@@ -131,19 +131,19 @@ eval_let :: proc(ast: List, repl_env: ^Env) -> (res: MalType, ok: bool) {
         types.env_set(&let_env, name, val)
     }
     // Evaluate final expression
-    return EVAL(ast[2], &let_env)
+    return EVAL(ast.data[2], &let_env)
 }
 
 apply_fn :: proc(ast: List, repl_env: ^Env) -> (res: MalType, ok: bool) {
     // Extract function
-    f, f_ok := ast[0].(Core_Fn)
+    f, f_ok := ast.data[0].(Core_Fn)
     if !f_ok {
-        fmt.printfln("Error: '%s' is not a function.", ast[0])
+        fmt.printfln("Error: '%s' is not a function.", ast.data[0])
         return nil, false
         }
 
     // Apply function and return the result.
-    res, ok = f(..cast([]MalType)ast[1:])
+    res, ok = f.fn(..ast.data[1:])
     if !ok {
         fmt.println("Exception!")
         return nil, false
@@ -181,7 +181,7 @@ main :: proc() {
     for {
         fmt.print("user> ")
         n, err := os.read(os.stdin, buf[:])
-        if err < 0 {
+        if err != nil {
             // Handle error
             return
         }
