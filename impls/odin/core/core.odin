@@ -159,8 +159,8 @@ make_ns :: proc() -> (namespace: map[Symbol]Core_Fn) {
     ns["slurp"] = proc(xs: ..MalType) -> (res: MalType, ok: bool) {
         #partial switch x in xs[0] {
         case string:
-            buf, ok := os.read_entire_file_from_filename(x)
-            if ok {
+            buf, err := os.read_entire_file(x, context.allocator)
+            if err == nil {
                 return string(buf), true
             } else {
                 fmt.println("Error: could not read file.")
