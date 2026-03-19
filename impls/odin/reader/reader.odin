@@ -13,9 +13,9 @@ EOF :: utf8.RUNE_EOF
 // TOKENIZER
 ////////////////////
 
-next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
+next_token :: proc(tokenizer: ^Tokenizer) -> (t: Token) {
     eofp := tokenizer_skip_whitespace(tokenizer)
-    for !eofp && rune(str[pos]) == ';' {
+    for !eofp && rune(tokenizer.str[tokenizer.pos]) == ';' {
         eofp = tokenizer_skip_comment(tokenizer)
     }
     if eofp {
@@ -23,7 +23,7 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
         return t
     }
 
-    switch rune(str[pos]) {
+    switch rune(tokenizer.str[tokenizer.pos]) {
     case '(', ')', '[', ']', '{', '}':
         t = tokenize_brace(tokenizer)
     case '0'..='9':
@@ -42,13 +42,13 @@ next_token :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     return t
 }
 
-tokenizer_skip_whitespace :: proc(using tokenizer: ^Tokenizer) -> (eofp: bool) {
+tokenizer_skip_whitespace :: proc(tokenizer: ^Tokenizer) -> (eofp: bool) {
     for {
-        if pos >= len(str) {
+        if tokenizer.pos >= len(tokenizer.str) {
             return true
         }
         if tokenizer_on_whitespace(tokenizer) {
-            pos += 1
+            tokenizer.pos += 1
         } else {
             break
         }
@@ -56,28 +56,33 @@ tokenizer_skip_whitespace :: proc(using tokenizer: ^Tokenizer) -> (eofp: bool) {
     return false
 }
 
-get_char :: proc(using tokenizer: ^Tokenizer) -> rune {
-    return rune(str[pos]) if pos < len(str) else EOF
+get_char :: proc(tokenizer: ^Tokenizer) -> rune {
+    if tokenizer.pos < len(tokenizer.str) {
+        return rune(tokenizer.str[tokenizer.pos])
+    }
+    else {
+        return EOF
+    }
 }
 
-next_char :: proc(using tokenizer: ^Tokenizer) -> rune {
-    pos += 1
+next_char :: proc(tokenizer: ^Tokenizer) -> rune {
+    tokenizer.pos += 1
     return get_char(tokenizer)
 }
 
-tokenize :: proc(using tokenizer: ^Tokenizer, tag: Tag) -> Token {
-    begin := pos
+tokenize :: proc(tokenizer: ^Tokenizer, tag: Tag) -> Token {
+    begin := tokenizer.pos
     for {
         if tokenizer_not_on_atom(tokenizer) do break
-        pos += 1
+        tokenizer.pos += 1
         continue
     }
-    end := pos - 1
+    end := tokenizer.pos - 1
     return Token{ tag, Loc{ begin, end } }
 }
 
-tokenize_brace :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
-    loc := Loc{pos, pos}
+tokenize_brace :: proc(tokenizer: ^Tokenizer) -> (t: Token) {
+    loc := Loc{tokenizer.pos, tokenizer.pos}
 
     switch get_char(tokenizer) {
     case '(':
@@ -93,15 +98,15 @@ tokenize_brace :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     case '}':
         t = Token{ Tag.RIGHT_CURLY, loc}
     }
-    pos += 1
+    tokenizer.pos += 1
     return t
 }
 
 // A minus could begin a negative number or a symbol.
 // Look ahead to the next character to decide how to tokenize it.
-tokenize_minus :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
+tokenize_minus :: proc(tokenizer: ^Tokenizer) -> (t: Token) {
     snd := next_char(tokenizer)
-    pos -= 1
+    tokenizer.pos -= 1
     switch snd {
     case '0'..='9':
         t = tokenize(tokenizer, Tag.NUMBER)
@@ -111,8 +116,8 @@ tokenize_minus :: proc(using tokenizer: ^Tokenizer) -> (t: Token) {
     return t
 }
 
-tokenize_number :: proc(using tokenizer: ^Tokenizer) -> Token {
-    begin := pos
+tokenize_number :: proc(tokenizer: ^Tokenizer) -> Token {
+    begin := tokenizer.pos
 
     for {
         switch next_char(tokenizer) {
@@ -121,31 +126,31 @@ tokenize_number :: proc(using tokenizer: ^Tokenizer) -> Token {
         }
         break
     }
-    end := pos - 1
+    end := tokenizer.pos - 1
     return Token{ Tag.NUMBER, Loc{begin, end} }
 }
 
-tokenize_string :: proc(using tokenizer: ^Tokenizer) -> Token {
-    begin := pos
+tokenize_string :: proc(tokenizer: ^Tokenizer) -> Token {
+    begin := tokenizer.pos
 
     loop: for {
         switch next_char(tokenizer) {
         case '\\':
-            pos += 1
+            tokenizer.pos += 1
         case EOF:
-            pos -= 1
+            tokenizer.pos -= 1
             break loop
         case '"':
             break loop
         }
     }
-    end := pos
-    pos += 1
+    end := tokenizer.pos
+    tokenizer.pos += 1
     return Token{ Tag.STRING, Loc{begin, end} }
 }
 
-tokenize_quote :: proc(using tokenizer: ^Tokenizer) -> Token {
-    begin := pos
+tokenize_quote :: proc(tokenizer: ^Tokenizer) -> Token {
+    begin := tokenizer.pos
     tag: Tag
     switch get_char(tokenizer) {
     case '\'':
@@ -157,15 +162,15 @@ tokenize_quote :: proc(using tokenizer: ^Tokenizer) -> Token {
             tag = .SPLICE_UNQUOTE
         } else {
             tag = .UNQUOTE
-            pos -= 1
+            tokenizer.pos -= 1
         }
     case '@':
         tag = .DEREF
     case '^':
         tag = .META
     }
-    pos += 1
-    return Token{ tag, Loc{ begin, pos - 1 }}
+    tokenizer.pos += 1
+    return Token{ tag, Loc{ begin, tokenizer.pos - 1 }}
 }
 
 tokenizer_not_on_atom :: proc(tokenizer: ^Tokenizer, offset := 0) -> bool {
@@ -176,28 +181,28 @@ tokenizer_not_on_atom :: proc(tokenizer: ^Tokenizer, offset := 0) -> bool {
            tokenizer_on_semicolon(tokenizer)
 }
 
-tokenizer_on_eof :: proc(using tokenizer: ^Tokenizer) -> bool {
-    return pos >= len(str)
+tokenizer_on_eof :: proc(tokenizer: ^Tokenizer) -> bool {
+    return tokenizer.pos >= len(tokenizer.str)
 }
 
-tokenizer_on_brace :: proc(using tokenizer: ^Tokenizer) -> bool {
-    switch rune(str[pos]) {
+tokenizer_on_brace :: proc(tokenizer: ^Tokenizer) -> bool {
+    switch rune(tokenizer.str[tokenizer.pos]) {
     case '(', ')', '[', ']', '{', '}':
         return true
     }
     return false
 }
 
-tokenizer_on_whitespace :: proc(using tokenizer: ^Tokenizer) -> bool {
-    switch rune(str[pos]) {
+tokenizer_on_whitespace :: proc(tokenizer: ^Tokenizer) -> bool {
+    switch rune(tokenizer.str[tokenizer.pos]) {
     case ' ', ',', '\t', '\n', '\r':
         return true
     }
     return false
 }
 
-tokenizer_on_semicolon :: proc(using tokenizer: ^Tokenizer) -> bool {
-    return rune(str[pos]) == ';'
+tokenizer_on_semicolon :: proc(tokenizer: ^Tokenizer) -> bool {
+    return rune(tokenizer.str[tokenizer.pos]) == ';'
 }
 
 tokenizer_skip_comment :: proc(tokenizer: ^Tokenizer) -> (eofp: bool) {
