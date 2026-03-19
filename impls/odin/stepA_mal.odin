@@ -292,15 +292,16 @@ macroexpand :: proc(ast: MalType, env: ^Env) -> (res: MalType, expanded: bool) {
     ast := ast
 
     // Expand as long as the first element is a macro
-    fn := get_macro_fn(ast, env) or_return
     for {
+        fn, is_macro := get_macro_fn(ast, env)
+        // `expanded` is originally false (default return value)
+        expanded |= is_macro
+        if !is_macro do break
         args := ast.(List).data[1:]
         ast = types.apply(fn, ..args) or_return
-        fn, is_macro := get_macro_fn(ast, env)
-        if !is_macro do break
     }
 
-    return ast, true
+    return ast, expanded
 
     get_macro_fn :: proc(ast: MalType, env: ^Env) -> (fn: Closure, is_macro: bool) {
         list := ast.(List) or_return
