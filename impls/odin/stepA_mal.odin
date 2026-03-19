@@ -17,7 +17,6 @@ Keyword :: types.Keyword
 Hash_Map :: types.Hash_Map
 Core_Fn :: types.Core_Fn
 Closure :: types.Closure
-
 Env :: types.Env
 
 READ :: proc(s: string) -> (ast: MalType, ok: bool) {
@@ -36,7 +35,8 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
             // Macro expansion:
             expanded, is_macro := macroexpand(body, env)
             if is_macro {
-                if list, is_list := expanded.(List); is_list {
+                list, is_list := expanded.(List)
+                if is_list {
                     body = list
                 } else {
                     return eval_ast(expanded, env)
@@ -54,18 +54,15 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
                 if !ok do return ast, false
                 continue
             case "do":
-                ast, ok = eval_do(body, env)
-                if !ok do return ast, false
+                ast = eval_do(body, env) or_return
                 continue
             case "if":
-                ast, ok = eval_if(body, env)
-                if !ok do return ast, false
+                ast = eval_if(body, env) or_return
                 continue
             case "fn*":
                 return eval_closure(body, env)
             case "eval":
-                ast, ok = EVAL(body.data[1], env)
-                if !ok do return ast, false
+                ast = EVAL(body.data[1], env) or_return
                 env = outer_env
                 continue
             case "quote":
@@ -76,8 +73,7 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
                 ast = eval_quasiquote(body.data[1])
                 continue
             case "macroexpand":
-                ast, ok = macroexpand(body.data[1], env)
-                if !ok do return string("Not a macro form."), false
+                ast = macroexpand(body.data[1], env) or_return
                 return ast, true
             case "try*":
                 return try_catch(body, env)
@@ -100,8 +96,8 @@ EVAL :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
                 continue
 
                 case:
-                err := fmt.aprintf("'%s' not found", body.data[0])
-                return err, false
+                fmt.println("'%s' not found", body.data[0])
+                return
             }
         } else {
             // Not a function or special form
@@ -125,8 +121,7 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
     case Vector:
         list: [dynamic]MalType
         for elem in ast.data {
-            evaled, ok_evaled := EVAL(elem, outer_env)
-            if !ok_evaled do return evaled, false
+            evaled := EVAL(elem, outer_env) or_return
             append(&list, evaled)
         }
         return types.to_vector(list[:]), true
@@ -134,8 +129,7 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
     case Hash_Map:
         m := new(Hash_Map)
         for k, v in ast.data {
-            evaled, ok_evaled := EVAL(v, outer_env)
-            if !ok_evaled do return v, false
+            evaled := EVAL(v, outer_env) or_return
             m.data[k] = evaled
         }
         return m^, true
@@ -144,8 +138,8 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
         if val, ok := types.env_get(outer_env, ast); ok {
             return val, true
         } else {
-            err := fmt.aprintf("'%s' not found", ast)
-            return err, false
+            fmt.println("'%s' not found", ast)
+            return
         }
     }
 
@@ -155,8 +149,7 @@ eval_ast :: proc(input: MalType, outer_env: ^Env) -> (res: MalType, ok: bool) {
 eval_def :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     sym := ast.data[1].(Symbol)
     // Evaluate the expression to get symbol value
-    val, ok_val := EVAL(ast.data[2], outer_env)
-    if !ok_val do return val, false
+    val := EVAL(ast.data[2], outer_env) or_return
     // Set environment variable
     types.env_set(outer_env, sym, val)
     // Retrieve variable
@@ -198,12 +191,12 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (body: MalType, env: ^Env, ok: b
 
         if !ok_binds {
             fmt.println("Error: the second member of a let* expression must be a list or a vector.")
-            return nil, false
+            return
         }
 
         if len(binds) % 2 != 0 {
             fmt.println("Error: the list of bindings in let* must have an even number of elements.")
-            return nil, false
+            return
         }
 
         return binds, true
@@ -211,8 +204,7 @@ eval_let :: proc(ast: List, outer_env: ^Env) -> (body: MalType, env: ^Env, ok: b
 }
 
 eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
-    cond, ok_cond := EVAL(ast.data[1], outer_env)
-    if !ok_cond do return cond, false
+    cond := EVAL(ast.data[1], outer_env) or_return
     // If third element is missing, it defaults to nil
     third := ast.data[3] if len(ast.data) == 4 else nil
 
@@ -225,8 +217,7 @@ eval_if :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
 
 eval_do :: proc(ast: List, outer_env: ^Env) -> (res: MalType, ok: bool) {
     for i in 1..<(len(ast.data)-1) {
-        res, ok = EVAL(ast.data[i], outer_env)
-        if !ok do return res, false
+        res = EVAL(ast.data[i], outer_env) or_return
     }
     return ast.data[len(ast.data)-1], true
 }
@@ -237,7 +228,7 @@ eval_closure :: proc(ast: List, outer_env: ^Env) -> (fn: Closure, ok: bool) {
         for param in params do append(&fn.params, param.(Symbol))
     } else {
         fmt.println("Error: the second member of a fn* expression must be a vector or list.")
-        return fn, false
+        return
     }
 
     // Create function environment
@@ -301,12 +292,12 @@ macroexpand :: proc(ast: MalType, env: ^Env) -> (res: MalType, expanded: bool) {
     ast := ast
 
     // Expand as long as the first element is a macro
-    fn, is_macro := get_macro_fn(ast, env)
-    if !is_macro do return ast, false
-    for is_macro {
+    fn := get_macro_fn(ast, env) or_return
+    for {
         args := ast.(List).data[1:]
         ast = types.apply(fn, ..args) or_return
-        fn, is_macro = get_macro_fn(ast, env)
+        fn, is_macro := get_macro_fn(ast, env)
+        if !is_macro do break
     }
 
     return ast, true
@@ -358,11 +349,10 @@ PRINT :: proc(ast: MalType) -> string {
     return reader.pr_str(ast)
 }
 
-rep :: proc(s: string, env: ^Env) -> (string, bool) {
-    r, ok_read := READ(s)
-    if !ok_read do return r.(string), false
-    e, ok_eval := EVAL(r, env)
-    return PRINT(e), ok_eval
+rep :: proc(s: string, env: ^Env) -> (res: string, ok: bool) {
+    r := READ(s) or_return
+    e := EVAL(r, env) or_return
+    return PRINT(e), true
 }
 
 main :: proc() {
@@ -408,8 +398,6 @@ main :: proc() {
         // Normal handling
         if r, ok := rep(input, main_env); ok {
             fmt.println(r)
-        } else {
-            fmt.println("Exception:", r)
         }
     }
 

@@ -276,11 +276,14 @@ read_atom :: proc(reader: ^Reader, t: Token) -> (atom: MalType, ok: bool) {
     case .STRING:
         return read_string(reader.str[t.loc.begin:t.loc.end + 1])
     case .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-        return string("unbalanced parentheses"), false
+        fmt.println("unbalanced parentheses")
+        return
     case .LEFT_PAREN, .LEFT_SQUARE, .LEFT_CURLY:
-        return string("unbalanced parentheses"), false
+        fmt.println("unbalanced parentheses")
+        return
     case .QUOTE, .QUASIQUOTE, .UNQUOTE, .SPLICE_UNQUOTE, .DEREF, .META:
-        return string("unexpected reader macro."), false
+        fmt.println("unexpected reader macro.")
+        return
     case .END:
         return nil, true
     }
@@ -295,14 +298,15 @@ read_list :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
 
         #partial switch t.tag {
         case .END:
-            return string("unbalanced parentheses"), false
+            fmt.println("unbalanced parentheses")
+            return
         case .RIGHT_PAREN:
             return types.to_list(list[:]), true
         case .RIGHT_SQUARE, .RIGHT_CURLY:
-            return string("unbalanced parentheses"), false
+            fmt.println("unbalanced parentheses")
+            return
         case:
-            form, success := read_token(reader, t)
-            if !success do return form, false
+            form := read_token(reader, t) or_return
             append(&list, form)
         }
     }
@@ -316,14 +320,15 @@ read_vector :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
 
         #partial switch t.tag {
         case .END:
-            return string("unbalanced parentheses"), false
+            fmt.println("unbalanced parentheses")
+            return
         case .RIGHT_SQUARE:
             return types.to_vector(list[:]), true
         case .RIGHT_PAREN, .RIGHT_CURLY:
-            return string("unbalanced parentheses"), false
+            fmt.println("unbalanced parentheses")
+            return
         case:
-            form, success := read_token(reader, t)
-            if !success do return form, false
+            form := read_token(reader, t) or_return
             append(&list, form)
         }
     }
@@ -335,7 +340,8 @@ read_hash_map :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
         t := next_token(&reader.tokenizer)
         #partial switch t.tag {
         case .END, .RIGHT_PAREN, .RIGHT_SQUARE:
-            return string("unbalanced parentheses."), false
+            fmt.println("unbalanced parentheses")
+            return
         case .RIGHT_CURLY:
             return m^, true
         }
@@ -347,7 +353,8 @@ read_hash_map :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
         t2 := next_token(&reader.tokenizer)
         #partial switch t.tag {
         case .END, .RIGHT_PAREN, .RIGHT_SQUARE, .RIGHT_CURLY:
-            return string("unbalanced parentheses."), false
+            fmt.println("unbalanced parentheses")
+            return
         }
         v := read_token(reader, t2) or_return
 
@@ -357,14 +364,16 @@ read_hash_map :: proc(reader: ^Reader) -> (res: MalType, ok: bool) {
 
 read_string :: proc(s: string) -> (res: MalType, ok: bool) {
     if len(s) < 2 || s[len(s) - 1] != '"' {
-        return string("unbalanced quotes."), false
+        fmt.println("unbalanced quotes")
+        return
     }
     sb := strings.builder_make()
 
     for i := 1; i < len(s) - 1; i += 1 {
         if rune(s[i]) == '\\' {
             if i == len(s) - 2 {
-                return string("unbalanced quotes."), false
+                fmt.println("unbalanced quotes")
+                return
             }
             switch rune(s[i+1]) {
             case '\\':
@@ -407,7 +416,8 @@ read_metadata :: proc(reader: ^Reader) -> (ast: MalType, ok: bool) {
     list: [dynamic]MalType
     defer delete(list)
     if next_token(&reader.tokenizer).tag != .LEFT_CURLY {
-        return string("read metadata error."), false
+        fmt.println("read metadata error.")
+        return
     }
     m := read_hash_map(reader) or_return
     data := read_form(reader) or_return
